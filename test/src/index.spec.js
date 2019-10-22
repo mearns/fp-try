@@ -147,6 +147,94 @@ describe("Try.js", () => {
                 }
             )
     );
+
+    testMethod("filter", def =>
+        def
+            .aSuccess(
+                "should return itself if the predicate passes",
+                (expect, v, it) => {
+                    expect.return(x => x === v).to.equal(it);
+                }
+            )
+            .aSuccess(
+                "should return a failure if the predicate fails",
+                (expect, v, it) => {
+                    expect.return(x => x !== v).to.satisfy(t => t.isFailure());
+                }
+            )
+            .aFailure(
+                "should return itself if the predicate passes",
+                (expect, e, it) => {
+                    expect.return(() => true).to.equal(it);
+                }
+            )
+            .aFailure(
+                "should return itself if the predicate fails",
+                (expect, e, it) => {
+                    expect.return(() => false).to.equal(it);
+                }
+            )
+    );
+
+    testMethod("recover", def =>
+        def
+            .aSuccess(
+                "should return itself without invoking the mapper",
+                (expect, v, it) => {
+                    const spy = sinon.spy();
+                    expect.return(spy).to.equal(it);
+                    expect.that(spy).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should return a success encapsulating the mapped value",
+                (expect, e, it) => {
+                    expect
+                        .return(e => "test-recovery")
+                        .to.satisfy(t => t.get() === "test-recovery");
+                }
+            )
+            .aFailure(
+                "should return a failure when the mapper function throws",
+                expect => {
+                    const testError = new Error("test-recovery-failed");
+                    expect
+                        .return(() => {
+                            throw testError;
+                        })
+                        .to.satisfy(t => t.isFailure())
+                        .and.to.satisfy(t =>
+                            t.catch(e => expect.that(e).to.equal(testError))
+                        );
+                }
+            )
+    );
+
+    testMethod("recoverWith", def =>
+        def
+            .aSuccess(
+                "should return itself without invoking the mapper",
+                (expect, v, it) => {
+                    const spy = sinon.spy();
+                    expect.return(spy).to.equal(it);
+                    expect.that(spy).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should return a successful Try returned by the mapper",
+                (expect, e, it) => {
+                    const expectedTry = Try.Success("test-recovery");
+                    expect.return(e => expectedTry).to.equal(expectedTry);
+                }
+            )
+            .aFailure(
+                "should return a failure Try returned by the mapper",
+                (expect, e, it) => {
+                    const expectedTry = Try.Failure(new Error("test-error"));
+                    expect.return(e => expectedTry).to.equal(expectedTry);
+                }
+            )
+    );
 });
 
 function createExpectationApi(func) {
