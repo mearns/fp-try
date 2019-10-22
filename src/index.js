@@ -252,7 +252,7 @@ Try.flatApply = trySupplier => {
     try {
         return trySupplier();
     } catch (e) {
-        return Try.Failure;
+        return Try.Failure(e);
     }
 };
 

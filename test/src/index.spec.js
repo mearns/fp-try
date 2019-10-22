@@ -236,4 +236,245 @@ describe("Try.js", () => {
                 }
             )
     );
+
+    testMethod("transform", def =>
+        def
+            .aSuccess(
+                "should return a success Try returned by the valueMapper",
+                (expect, v) => {
+                    const failureMapper = sinon.spy();
+                    expect
+                        .return(v => Try.Success(v + v), failureMapper)
+                        .to.satisfy(t => t.get() === v + v);
+                    expect.that(failureMapper).has.not.been.called;
+                }
+            )
+            .aSuccess(
+                "should return a failure Try returned by the valueMapper",
+                (expect, v) => {
+                    const failureMapper = sinon.spy();
+                    expect
+                        .return(v => Try.Failure(new Error(String(v))))
+                        .to.satisfy(t =>
+                            t.catch(e =>
+                                expect
+                                    .that(e)
+                                    .has.property("message", String(v))
+                            )
+                        );
+                    expect.that(failureMapper).has.not.been.called;
+                }
+            )
+            .aSuccess(
+                "should throw an error thrown by the value mapper",
+                expect => {
+                    const testError = new Error("test value mapper error");
+                    expect
+                        .func(
+                            () => {
+                                throw testError;
+                            },
+                            () => {}
+                        )
+                        .to.throw(testError);
+                }
+            )
+            .aFailure(
+                "should return a success Try returned by the failureMapper",
+                (expect, e) => {
+                    const successMapper = sinon.spy();
+                    expect
+                        .return(successMapper, e => Try.Success(e.message))
+                        .to.satisfy(t => t.get() === e.message);
+                    expect.that(successMapper).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should return a failure Try returned by the failureMapper",
+                (expect, e) => {
+                    const successMapper = sinon.spy();
+                    expect
+                        .return(successMapper, e =>
+                            Try.Failure(new Error(e.message + "-123"))
+                        )
+                        .to.satisfy(t =>
+                            t.catch(ex =>
+                                expect
+                                    .that(ex)
+                                    .has.property("message", e.message + "-123")
+                            )
+                        );
+                    expect.that(successMapper).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should throw an error thrown by the error mapper",
+                expect => {
+                    const testError = new Error("test value mapper error");
+                    expect
+                        .func(
+                            () => {},
+                            () => {
+                                throw testError;
+                            }
+                        )
+                        .to.throw(testError);
+                }
+            )
+    );
+
+    testMethod("safeTransform", def =>
+        def
+            .aSuccess(
+                "should return a success Try returned by the valueMapper",
+                (expect, v) => {
+                    const failureMapper = sinon.spy();
+                    expect
+                        .return(v => Try.Success(v + v), failureMapper)
+                        .to.satisfy(t => t.get() === v + v);
+                    expect.that(failureMapper).has.not.been.called;
+                }
+            )
+            .aSuccess(
+                "should return a failure Try returned by the valueMapper",
+                (expect, v) => {
+                    const failureMapper = sinon.spy();
+                    expect
+                        .return(v => Try.Failure(new Error(String(v))))
+                        .to.satisfy(t =>
+                            t.catch(e =>
+                                expect
+                                    .that(e)
+                                    .has.property("message", String(v))
+                            )
+                        );
+                    expect.that(failureMapper).has.not.been.called;
+                }
+            )
+            .aSuccess(
+                "should catch an error thrown by the value mapper and return as a failure",
+                expect => {
+                    const testError = new Error("test value mapper error");
+                    expect
+                        .return(
+                            () => {
+                                throw testError;
+                            },
+                            () => {}
+                        )
+                        .to.satisfy(t =>
+                            t.catch(e => expect.that(e).is.equal(testError))
+                        );
+                }
+            )
+            .aFailure(
+                "should return a success Try returned by the failureMapper",
+                (expect, e) => {
+                    const successMapper = sinon.spy();
+                    expect
+                        .return(successMapper, e => Try.Success(e.message))
+                        .to.satisfy(t => t.get() === e.message);
+                    expect.that(successMapper).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should return a failure Try returned by the failureMapper",
+                (expect, e) => {
+                    const successMapper = sinon.spy();
+                    expect
+                        .return(successMapper, e =>
+                            Try.Failure(new Error(e.message + "-123"))
+                        )
+                        .to.satisfy(t =>
+                            t.catch(ex =>
+                                expect
+                                    .that(ex)
+                                    .has.property("message", e.message + "-123")
+                            )
+                        );
+                    expect.that(successMapper).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should catch an error thrown by the failure mapper and return as a failure",
+                expect => {
+                    const testError = new Error("test value mapper error");
+                    expect
+                        .return(
+                            () => {},
+                            () => {
+                                throw testError;
+                            }
+                        )
+                        .to.satisfy(t =>
+                            t.catch(e => expect.that(e).is.equal(testError))
+                        );
+                }
+            )
+    );
+
+    testMethod("transmute", def =>
+        def
+            .aSuccess(
+                "should return the value returned by the success mapper",
+                (expect, v) => {
+                    const errorMapper = sinon.spy();
+                    expect.return(x => x + x, errorMapper).to.equal(v + v);
+                    expect.that(errorMapper).has.not.been.called;
+                }
+            )
+            .aSuccess(
+                "should throw an error thrown by the success mapper",
+                expect => {
+                    const testError = new Error("test transmute error");
+                    expect
+                        .func(
+                            () => {
+                                throw testError;
+                            },
+                            () => {}
+                        )
+                        .to.throw(testError);
+                }
+            )
+            .aFailure(
+                "should return the value returned by the failure mapper",
+                (expect, e) => {
+                    const successMapper = sinon.spy();
+                    expect
+                        .return(successMapper, ex => ex.message)
+                        .to.equal(e.message);
+                    expect.that(successMapper).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should throw an error thrown by the failure mapper",
+                expect => {
+                    const testError = new Error("test transmute error");
+                    expect
+                        .func(
+                            () => {},
+                            () => {
+                                throw testError;
+                            }
+                        )
+                        .to.throw(testError);
+                }
+            )
+    );
+
+    testMethod("invert", def =>
+        def
+            .aSuccess("should be turned into a failure", expect => {
+                expect.value().to.satisfy(t => t.isFailure());
+            })
+            .aFailure(
+                "should be turned into a success encapsulating the original error as the value",
+                (expect, e) => {
+                    expect
+                        .value()
+                        .to.satisfy(t => t.isSuccess() && t.get() === e);
+                }
+            )
+    );
 });
