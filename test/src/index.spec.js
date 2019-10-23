@@ -15,6 +15,7 @@ const {
     TEST_OBSERVABLE_TYPE,
     testObservable
 } = require("../test-utils");
+const rxjs = require("rxjs");
 
 chai.use(require("chai-as-promised"));
 chai.use(require("sinon-chai"));
@@ -69,6 +70,16 @@ describe("Try.js", () => {
             )
     );
 
+    testMethod("get", def =>
+        def
+            .aSuccess("should return the test value", (expect, v) =>
+                expect.return("default-value").to.equal(v)
+            )
+            .aFailure("should throw the encapsulated error", (expect, e) =>
+                expect.func().to.throw(e)
+            )
+    );
+
     testMethod("getOrElse", def =>
         def
             .aSuccess("should return the test value", (expect, v) =>
@@ -87,6 +98,74 @@ describe("Try.js", () => {
             expect.return(altTry).to.equal(altTry);
         });
     });
+
+    testMethod("map", def =>
+        def
+            .aSuccess(
+                "should return a success that maps the encapuslated value",
+                (expect, v) => {
+                    expect
+                        .return(x => x + x)
+                        .to.satisfy(t => t.isSuccess() && t.get() === v + v);
+                }
+            )
+            .aSuccess(
+                "should return a failure encapsulating an error thrown by the mapper",
+                expect => {
+                    const testError = new Error("test mapper error");
+                    const t = expect.fut(() => {
+                        throw testError;
+                    });
+                    expect.that(t.isSuccess()).is.false;
+                    t.catch(x => expect.that(x).equals(testError));
+                }
+            )
+            .aFailure(
+                "should return a failure that encapsulates the same error",
+                (expect, e) => {
+                    const mapper = sinon.spy();
+                    const t = expect.fut(mapper);
+                    expect.that(t.isSuccess()).is.false;
+                    t.catch(x => expect.that(x).equals(e));
+                    expect.that(mapper).is.not.called;
+                }
+            )
+    );
+
+    testMethod("flatMap", def =>
+        def
+            .aSuccess(
+                "should return a success that flat maps the encapuslated value",
+                (expect, v) => {
+                    expect
+                        .return(x => Try.Success("123-" + x))
+                        .to.satisfy(
+                            t => t.isSuccess() && t.get() === "123-" + v
+                        );
+                }
+            )
+            .aSuccess(
+                "should return a failure encapsulating an error thrown by the mapper",
+                expect => {
+                    const testError = new Error("test mapper error");
+                    const t = expect.fut(() => {
+                        throw testError;
+                    });
+                    expect.that(t.isSuccess()).is.false;
+                    t.catch(x => expect.that(x).equals(testError));
+                }
+            )
+            .aFailure(
+                "should return a failure that encapsulates the same error",
+                (expect, e) => {
+                    const mapper = sinon.spy();
+                    const t = expect.fut(mapper);
+                    expect.that(t.isSuccess()).is.false;
+                    t.catch(x => expect.that(x).equals(e));
+                    expect.that(mapper).is.not.called;
+                }
+            )
+    );
 
     testMethod("forEach", def =>
         def
@@ -639,4 +718,218 @@ describe("Try.js", () => {
                 }
             )
     );
+
+    describe("Try.apply", () => {
+        it("should return a success encapsulating the returned value", () => {
+            const TEST_VALUE = "test-1234";
+            const t = Try.apply(() => TEST_VALUE);
+            chai.expect(t.isSuccess()).to.be.true;
+            chai.expect(t.get()).to.equal(TEST_VALUE);
+        });
+
+        it("should catch an exception and return a failure encapsulating the error", () => {
+            const TEST_EXCEPTION = new Error("Test Exception");
+            const t = Try.apply(() => {
+                throw TEST_EXCEPTION;
+            });
+            chai.expect(t.isSuccess()).to.be.false;
+            t.catch(e => chai.expect(e).to.equal(TEST_EXCEPTION));
+        });
+    });
+
+    describe("Try.fromPromise", () => {
+        it("should return a promise for a success encapsulating the fulfillment value of a fulfilled promise", async () => {
+            const TEST_VALUE = "test-fulfillment-value-123";
+            const t = await Try.fromPromise(Promise.resolve(TEST_VALUE));
+            chai.expect(t.isSuccess()).to.be.true;
+            chai.expect(t.get()).to.equal(TEST_VALUE);
+        });
+
+        it("should return a promise for a failure encapsulating the rejection value of a rejected promise", async () => {
+            const TEST_ERROR = new Error("test rejection error");
+            const t = await Try.fromPromise(Promise.reject(TEST_ERROR));
+            chai.expect(t.isSuccess()).to.be.false;
+            t.catch(e => chai.expect(e).to.equal(TEST_ERROR));
+        });
+    });
+
+    describe("Try.fromOption", () => {
+        it("should return a success encapsulating the defined value for a defined option", () => {
+            const TEST_VALUE = "test-fulfillment-value-123";
+            const option = {
+                isDefined: () => true,
+                get: () => TEST_VALUE
+            };
+            const t = Try.fromOption(option);
+            chai.expect(t.isSuccess()).to.be.true;
+            chai.expect(t.get()).to.equal(TEST_VALUE);
+        });
+
+        it("should return a failure for an undefined option", () => {
+            const option = {
+                isDefined: () => false
+            };
+            const t = Try.fromOption(option);
+            chai.expect(t.isSuccess()).to.be.false;
+        });
+    });
+
+    describe("Try.fromOptional", () => {
+        it("should return a success encapsulating the defined value for a present optional", () => {
+            const TEST_VALUE = "test-fulfillment-value-123";
+            const optional = {
+                isPresent: () => true,
+                get: () => TEST_VALUE
+            };
+            const t = Try.fromOptional(optional);
+            chai.expect(t.isSuccess()).to.be.true;
+            chai.expect(t.get()).to.equal(TEST_VALUE);
+        });
+
+        it("should return a failure for a non-present optional", () => {
+            const optional = {
+                isPresent: () => false
+            };
+            const t = Try.fromOptional(optional);
+            chai.expect(t.isSuccess()).to.be.false;
+        });
+    });
+
+    describe("Try.fromMaybe", () => {
+        it("should return a success for a Just value", () => {
+            const TEST_VALUE = "test-fulfillment-value-123";
+            const maybe = {
+                map: func => ({
+                    getOrElse: () => func(TEST_VALUE)
+                })
+            };
+            const t = Try.fromMaybe(maybe);
+            chai.expect(t.isSuccess()).to.be.true;
+            chai.expect(t.get()).to.equal(TEST_VALUE);
+        });
+
+        it("should return a failure for the None value", () => {
+            const maybe = {
+                map: () => ({
+                    getOrElse: func => func()
+                })
+            };
+            const t = Try.fromMaybe(maybe);
+            chai.expect(t.isSuccess()).to.be.false;
+        });
+    });
+
+    describe("Try.createTryOperator", () => {
+        it("should map an observable by wrapping emitted events in successes", () => {
+            const operator = Try.createTryOperator(
+                (...args) => new rxjs.Observable(...args)
+            );
+            const source = rxjs.of(1, 4, 9);
+            const dest = source.pipe(operator);
+            const { next, error, complete } = testObservable(dest);
+            chai.expect(next).to.have.been.calledThrice;
+            chai.expect(next.firstCall.args).to.have.length(1);
+            chai.expect(next.firstCall.args[0]).to.satisfy(
+                t => t.isSuccess() && t.get() === 1
+            );
+            chai.expect(next.secondCall.args).to.have.length(1);
+            chai.expect(next.secondCall.args[0]).to.satisfy(
+                t => t.isSuccess() && t.get() === 4
+            );
+            chai.expect(next.thirdCall.args).to.have.length(1);
+            chai.expect(next.thirdCall.args[0]).to.satisfy(
+                t => t.isSuccess() && t.get() === 9
+            );
+            chai.expect(error).to.not.have.been.called;
+            chai.expect(complete).to.have.been.calledOnceWithExactly();
+            chai.expect(complete).to.have.been.calledAfter(next);
+        });
+
+        it("should map an observable by wrapping emitted errors in failures and completing", () => {
+            const testError = new Error("test emitted error");
+            const operator = Try.createTryOperator(
+                (...args) => new rxjs.Observable(...args)
+            );
+            const source = rxjs.concat(rxjs.of(31), rxjs.throwError(testError));
+            const dest = source.pipe(operator);
+            const marbles = [];
+            dest.subscribe(
+                v => marbles.push(v),
+                e => {
+                    throw e;
+                },
+                () => marbles.push(null)
+            );
+            chai.expect(marbles).to.have.length(3);
+            chai.expect(marbles[0]).to.satisfy(t => t.isSuccess());
+            chai.expect(marbles[1]).to.satisfy(t => !t.isSuccess());
+            chai.expect(marbles[2]).to.be.null;
+        });
+    });
+
+    describe("Try.createUnTryOperator", () => {
+        it("should map an observable by unwrapping emitted successes", () => {
+            const operator = Try.createUnTryOperator(
+                (...args) => new rxjs.Observable(...args)
+            );
+            const source = rxjs.of(Try.Success(7), Try.Success(5));
+            const dest = source.pipe(operator);
+            const marbles = [];
+            dest.subscribe(
+                v => marbles.push(v),
+                e => {
+                    throw e;
+                },
+                () => marbles.push(null)
+            );
+            chai.expect(marbles).to.have.length(3);
+            chai.expect(marbles[0]).to.equal(7);
+            chai.expect(marbles[1]).to.equal(5);
+            chai.expect(marbles[2]).to.be.null;
+        });
+
+        it("should map an observable by unwrapping emitted failures and erring", () => {
+            const testError = new Error("test failure");
+            const operator = Try.createUnTryOperator(
+                (...args) => new rxjs.Observable(...args)
+            );
+            const source = rxjs.of(
+                Try.Success(70),
+                Try.Failure(testError),
+                Try.Success(18)
+            );
+            const dest = source.pipe(operator);
+            const marbles = [];
+            dest.subscribe(
+                v => marbles.push([true, v]),
+                e => marbles.push([false, e]),
+                () => marbles.push(null)
+            );
+            chai.expect(marbles).to.have.length(2);
+            chai.expect(marbles[0]).to.deep.equal([true, 70]);
+            chai.expect(marbles[1]).to.deep.equal([false, testError]);
+        });
+
+        it("should map an observable by copying errors forward", () => {
+            const testError = new Error("test failure");
+            const operator = Try.createUnTryOperator(
+                (...args) => new rxjs.Observable(...args)
+            );
+            const source = rxjs.concat(
+                rxjs.of(Try.Success(110)),
+                rxjs.throwError(testError),
+                rxjs.of(Try.Failure(new Error("A different error")))
+            );
+            const dest = source.pipe(operator);
+            const marbles = [];
+            dest.subscribe(
+                v => marbles.push([true, v]),
+                e => marbles.push([false, e]),
+                () => marbles.push(null)
+            );
+            chai.expect(marbles).to.have.length(2);
+            chai.expect(marbles[0]).to.deep.equal([true, 110]);
+            chai.expect(marbles[1]).to.deep.equal([false, testError]);
+        });
+    });
 });

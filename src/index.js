@@ -98,6 +98,14 @@ class Try {
      * @see transform
      */
     /**
+     * Maps the encapsulated value of a success through the given mapper and returns a success encapsulating
+     * the result. If the mapper throws an error, it's encapsulated in a failure. If this try is already
+     * a failure, it is returned as is.
+     * @method map
+     * @param {function(T):U} mapper
+     * @return {Try<U>}
+     */
+    /**
      * If the Try is a success and its value passes the given predicate, the Try is returned.
      * If it does not pass the predicate, or if the predicate throws, a Failure is returned.
      * If the Try is already a Failure, it is returned.
@@ -364,7 +372,10 @@ Try.createTryOperator = Observable => {
         Observable(observer =>
             source.subscribe(
                 v => observer.next(Try.Success(v)),
-                e => observer.next(Try.Failure(e)),
+                e => {
+                    observer.next(Try.Failure(e));
+                    observer.complete();
+                },
                 () => observer.complete()
             )
         );
@@ -592,7 +603,7 @@ class Success extends Try {
     }
 
     map(mapper) {
-        return Try.apply(mapper(this._value));
+        return Try.apply(() => mapper(this._value));
     }
 
     flatMap(mapper) {

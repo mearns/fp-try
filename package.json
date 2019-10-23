@@ -59,10 +59,9 @@
     "nyc": "^14.1.1",
     "prettier": "^1.17.1",
     "pretty-quick": "^1.10.0",
+    "rxjs": "^6.5.3",
     "sinon": "^7.5.0",
     "sinon-chai": "^3.3.0"
   },
-  "dependencies": {
-    "rxjs": "^6.5.3"
-  }
+  "dependencies": {}
 }
