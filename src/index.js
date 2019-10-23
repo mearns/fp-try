@@ -208,7 +208,7 @@ class Try {
      * @return {Observable<T>}
      */
     /**
-     * Converts this Try to an Observable stream that works the same as a supresses observable stream returned
+     * Converts this Try to an Observable stream that works the same as a supressed observable stream returned
      * by `toSuppressingObservable`, except the stream never completes (for either the failure or success case).
      * @method toHungObservable
      * @param {function(function(subscriber)): Observable<T>} Observable

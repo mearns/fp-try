@@ -7,7 +7,14 @@ const Try = require("../../src/index");
 // Support
 const chai = require("chai");
 const sinon = require("sinon");
-const { testMethod } = require("../test-utils");
+const {
+    testMethod,
+    TEST_OPTIONAL_TYPE,
+    TEST_OPTION_TYPE,
+    TEST_MAYBE_TYPE,
+    TEST_OBSERVABLE_TYPE,
+    testObservable
+} = require("../test-utils");
 
 chai.use(require("chai-as-promised"));
 chai.use(require("sinon-chai"));
@@ -470,6 +477,161 @@ describe("Try.js", () => {
             })
             .aFailure(
                 "should be turned into a success encapsulating the original error as the value",
+                (expect, e) => {
+                    expect
+                        .value()
+                        .to.satisfy(t => t.isSuccess() && t.get() === e);
+                }
+            )
+    );
+
+    testMethod("toOptional", def =>
+        def
+            .aSuccess(
+                "should return an optional of the encapsulated value",
+                (expect, v) => {
+                    expect
+                        .return(TEST_OPTIONAL_TYPE)
+                        .to.satisfy(
+                            opt =>
+                                opt.type === TEST_OPTIONAL_TYPE.OF &&
+                                opt.value === v
+                        );
+                }
+            )
+            .aFailure("should return an empty optional", expect => {
+                expect
+                    .return(TEST_OPTIONAL_TYPE)
+                    .to.have.property("type", TEST_OPTIONAL_TYPE.EMPTY);
+            })
+    );
+
+    testMethod("toOption", def =>
+        def
+            .aSuccess(
+                "should return a Some option of the encapsulated value",
+                (expect, v) => {
+                    expect
+                        .return(TEST_OPTION_TYPE)
+                        .to.satisfy(
+                            opt =>
+                                opt.type === TEST_OPTION_TYPE.SOME &&
+                                opt.value === v
+                        );
+                }
+            )
+            .aFailure("should return a None optional", expect => {
+                expect
+                    .return(TEST_OPTION_TYPE)
+                    .to.have.property("type", TEST_OPTION_TYPE.NONE);
+            })
+    );
+
+    testMethod("toMaybe", def =>
+        def
+            .aSuccess(
+                "should return a Just of the encapsulated value",
+                (expect, v) => {
+                    expect
+                        .return(TEST_MAYBE_TYPE)
+                        .to.satisfy(
+                            opt =>
+                                opt.type === TEST_MAYBE_TYPE.JUST &&
+                                opt.value === v
+                        );
+                }
+            )
+            .aFailure("should return a Nothing maybe", expect => {
+                expect
+                    .return(TEST_MAYBE_TYPE)
+                    .to.have.property("type", TEST_MAYBE_TYPE.NOTHING);
+            })
+    );
+
+    testMethod("toObservable", def =>
+        def
+            .aSuccess(
+                "should return an observable that emits the value and then ends",
+                (expect, v) => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.been.calledOnceWithExactly(v);
+                    expect.that(sub.error).has.not.been.called;
+                    expect.that(sub.complete).has.been.calledOnceWithExactly();
+                }
+            )
+            .aFailure(
+                "should return an observable that emits the error",
+                (expect, e) => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.not.been.called;
+                    expect.that(sub.error).has.been.calledOnceWithExactly(e);
+                    expect.that(sub.complete).has.not.been.called;
+                }
+            )
+    );
+
+    testMethod("toSuppressingObservable", def =>
+        def
+            .aSuccess(
+                "should return an observable that emits the value and then completes",
+                (expect, v) => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.been.calledOnceWithExactly(v);
+                    expect.that(sub.error).has.not.been.called;
+                    expect.that(sub.complete).has.been.calledOnceWithExactly();
+                }
+            )
+            .aFailure(
+                "should return an observable that completes immediately",
+                expect => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.not.been.called;
+                    expect.that(sub.error).has.not.been.called;
+                    expect.that(sub.complete).has.been.calledOnceWithExactly();
+                }
+            )
+    );
+
+    testMethod("toHungObservable", def =>
+        def
+            .aSuccess(
+                "should return an observable that emits the value and doesn't complete",
+                (expect, v) => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.been.calledOnceWithExactly(v);
+                    expect.that(sub.error).has.not.been.called;
+                    expect.that(sub.complete).has.not.been.called;
+                }
+            )
+            .aFailure(
+                "should return an observable that emits the error and doesn't complete",
+                (expect, e) => {
+                    const observable = expect.fut(TEST_OBSERVABLE_TYPE);
+                    const sub = testObservable(observable);
+                    expect.that(sub.next).has.not.been.called;
+                    expect.that(sub.error).has.not.been.called;
+                    expect.that(sub.complete).has.not.been.called;
+                }
+            )
+    );
+
+    testMethod("permissive", def =>
+        def
+            .aSuccess(
+                "should return a success that encapsulates the same value",
+                (expect, v) => {
+                    expect
+                        .value()
+                        .to.satisfy(t => t.isSuccess() && t.get() === v);
+                }
+            )
+            .aFailure(
+                "should return a success that encapsulates the error",
                 (expect, e) => {
                     expect
                         .value()
