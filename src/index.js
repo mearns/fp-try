@@ -1,8 +1,9 @@
 const unary = require("./unary");
 
 /**
- * @interface Try
+ * @interface
  */
+class Try {}
 
 /**
  * @memberof Try#
@@ -254,11 +255,6 @@ const unary = require("./unary");
  * @method permissive
  * @returns {Try<*>}
  */
-
-/**
- *
- */
-class Try {}
 
 /**
  * Execute the given function and encapsulate the result in a Try, whether successful
