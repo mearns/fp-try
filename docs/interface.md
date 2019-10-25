@@ -1,8 +1,51 @@
 # `Try` interface
 
-## static functions
+## Summary
 
-### `apply(supplier)`
+| Function                                     | Return Type         | Summary                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Try.apply(supplier)`                        | `Try.<T>`           | Execute the given function and encapsulate the result in a Try, whether successful or not.                                                                                                                                                                                                                                                                   |
+| `Try.flatApply(trySupplier)`                 | `Try.<T>`           | Similar to `apply`, this executes a function and captures any exceptions thrown into a Failure.                                                                                                                                                                                                                                                              |
+| `Try.fromPromise(p)`                         | `Promise.<Try.<T>>` | Given a Promise for a value, returns a Promise for a Try of that value; the returned promise will always fulfill: if the given promise fulfills, the returned promise will fulfill with a success encapsulating the fulfillment value; if the given promise rejects, the returned promise will fulfill with a failure Try encapsulating the rejection error. |
+| `Try.fromOption(option)`                     | `Try.<T>`           | Convert a scala-like Option object to a Try.                                                                                                                                                                                                                                                                                                                 |
+| `Try.fromOptional(optional)`                 | `Try.<T>`           | Convert a java-like Optional object to a Try.                                                                                                                                                                                                                                                                                                                |
+| `Try.fromMaybe(maybe)`                       | `Try.<T>`           | Converts a Maybe to a Try.                                                                                                                                                                                                                                                                                                                                   |
+| `Try.createTryOperator(Observable)`          | `function`          | Creates an operator for Observables in the style of rxjs.                                                                                                                                                                                                                                                                                                    |
+| `Try.createUnTryOperator(Observable)`        | `function`          | Similar to `createTryOperator`, this returns an Observable operator that transforms one observable into another.                                                                                                                                                                                                                                             |
+| `Try.Success()`                              |                     |                                                                                                                                                                                                                                                                                                                                                              |
+| `Try.Failure()`                              |                     |                                                                                                                                                                                                                                                                                                                                                              |
+| `Try::isSuccess()`                           |                     |                                                                                                                                                                                                                                                                                                                                                              |
+| `Try::isFailure()`                           |                     |                                                                                                                                                                                                                                                                                                                                                              |
+| `Try::get()`                                 | `T`                 | Gets the encapsulated value if it's successful, otherwise throws the encapsulated error.                                                                                                                                                                                                                                                                     |
+| `Try::toArray()`                             | `Array.<T>`         | Returns a new array containing the encapsulated value for a Success, or no values (an empty array) for a Failure.                                                                                                                                                                                                                                            |
+| `Try::toNullable()`                          | `T`                 | Returns the encapsulated value of a success, or `null` for a failure.                                                                                                                                                                                                                                                                                        |
+| `Try::toPromise()`                           | `Promise.<T>`       | Converts to this a settled promise.                                                                                                                                                                                                                                                                                                                          |
+| `Try::getOrElse(defaultValue)`               | `T`                 | Get the encpauslated value from a Success, or else return the given default value for a Failure.                                                                                                                                                                                                                                                             |
+| `Try::orElse(defaultTryValue)`               |                     | Somewhat like `getOrElse`, but this doesn't do the `get` portion of it, meaning it doesn't give you the encapsulated value, it gives you a Try.                                                                                                                                                                                                              |
+| `Try::forEach(consumer)`                     | `Try.<T>`           | A Try acts like a collection of 0 or 1 values, and this applies the given consumer to each item in the collection.                                                                                                                                                                                                                                           |
+| `Try::catch(consumer)`                       | `Try.<T>`           | Used for performing side effects on failures: the given function will be invoked if and only if this Try is a failure, in which case it will be invoked with the encapsualted error.                                                                                                                                                                         |
+| `Try::tap(valueConsumer, errorConsumer)`     | `Try.<T>`           | Used to perform side effects on success or failure.                                                                                                                                                                                                                                                                                                          |
+| `Try::map(mapper)`                           | `Try.<U>`           | Maps the encapsulated value of a success through the given mapper and returns a success encapsulating the result.                                                                                                                                                                                                                                            |
+| `Try::filter(predicate)`                     | `Try.<T>`           | If the Try is a success and its value passes the given predicate, the Try is returned.                                                                                                                                                                                                                                                                       |
+| `Try::recover(errorMapper)`                  | `Try.<T>`           | Recovers a Failure Try by mapping the encapsulated error into a valid value with the given mapper.                                                                                                                                                                                                                                                           |
+| `Try::recoverWith(recoverer)`                | `Try.<T>`           | Possibly recovers a Failure Try by mapping the encapsulated error into a Try.                                                                                                                                                                                                                                                                                |
+| `Try::transform(mapSuccess, mapFailure)`     | `Try.<U>`           | Transforms this Try into another Try by transforming the encapsulated value of a success, or the encapsulated error of a failure through the given functions.                                                                                                                                                                                                |
+| `Try::safeTransform(mapSuccess, mapFailure)` | `Try.<U>`           | Similar to `transform`, except that any error thrown by the selected mapper function is captured and returned as a Failure.                                                                                                                                                                                                                                  |
+| `Try::transmute(mapSuccess, mapFailure)`     | `U`                 | Unpacks the Try into a value by applying one function for successes, and one for failures.                                                                                                                                                                                                                                                                   |
+| `Try::invert()`                              | `Try.<Error>`       | Turns a Failure into a Success and vice-versa.                                                                                                                                                                                                                                                                                                               |
+| `Try::toOptional(Optional)`                  | `Optional.<T>`      | Converts this to an Optional, as long as you can provide it with an appropriate factory.                                                                                                                                                                                                                                                                     |
+| `Try::toOption(Option)`                      | `Option.<T>`        | Converts this to an Option using the provided factory object.                                                                                                                                                                                                                                                                                                |
+| `Try::toMaybe(Maybe)`                        | `Maybe.<T>`         | Converts this to a Maybe using the provided factory.                                                                                                                                                                                                                                                                                                         |
+| `Try::toObservable(Observable)`              | `Observable.<T>`    | Converts this Try to an Observable stream: A success returns an Observable that emits the encapsulated value and then completes, a failure turns an Observable that err's.                                                                                                                                                                                   |
+| `Try::toSuppressingObservable(Observable)`   | `Observable.<T>`    | Converts this Try to an Observable stream that supresses the encapsulated error of a failure.                                                                                                                                                                                                                                                                |
+| `Try::toHungObservable(Observable)`          | `Observable.<T>`    | Converts this Try to an Observable stream that works the same as a supressed observable stream returned by `toSuppressingObservable`, except the stream never completes (for either the failure or success case).                                                                                                                                            |
+| `Try::permissive()`                          | `Try.<*>`           | Returns a permissive Try which encapsulates both successes and failures as successes.                                                                                                                                                                                                                                                                        |
+
+## Member Details
+
+### static functions
+
+#### `apply(supplier)`
 
 Execute the given function and encapsulate the result in a Try, whether successful
 or not. If the func returns a value, this is returned
@@ -17,7 +60,7 @@ in a Failure and returned.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `flatApply(trySupplier)`
+#### `flatApply(trySupplier)`
 
 Similar to `apply`, this executes a function and captures any exceptions thrown into
 a Failure. The difference from `apply` is that the given function is assumed to already
@@ -31,7 +74,7 @@ return a `Try`, which is _not_ wrapped in another `Try`, but returned as is.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `fromPromise(p)`
+#### `fromPromise(p)`
 
 Given a Promise for a value, returns a Promise for a Try of that value;
 the returned promise will always fulfill: if the given promise fulfills, the
@@ -47,7 +90,7 @@ Try encapsulating the rejection error.
 | ----------- | ------------------- | --- |
 | **Returns** | `Promise.<Try.<T>>` |     |
 
-### `fromOption(option)`
+#### `fromOption(option)`
 
 Convert a scala-like Option object to a Try. If the option is defined (as defined by it's
 `isDefined` method returning a truthy value), it's value (as returned by it's `get` method)
@@ -64,7 +107,7 @@ be thrown. The `get` method is _only_ invoked if `isDefined` returns a truthy va
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `fromOptional(optional)`
+#### `fromOptional(optional)`
 
 Convert a java-like Optional object to a Try. If the optional is present (as defined by it's
 `isPresent` method returning a truthy value), it's value (as returned by it's `get` method)
@@ -81,7 +124,7 @@ be thrown. The `get` method is _only_ invoked if `isPresent` returns a truthy va
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `fromMaybe(maybe)`
+#### `fromMaybe(maybe)`
 
 Converts a Maybe to a Try. Assumes the Maybe implements the `map` and `getOrElse` methods;
 the former returns another Maybe with the encapsulated value (if any) transformed according to
@@ -96,7 +139,7 @@ if the Maybe has no encapsulated value and returns the result.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `createTryOperator(Observable)`
+#### `createTryOperator(Observable)`
 
 Creates an operator for Observables in the style of rxjs. The operator
 will map an observable to one that emits tries: values will be mapped
@@ -112,7 +155,7 @@ terminate when the source observable terminate or errors.
 | ----------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Returns** | `function` | The operator function which will take a source Observable and return a derived Observable that emits Tries as described above. The source Observable passed to the returned function is expected to have a `subscribe` method which takes three arguments: onNext, onError, and onComplete. |
 
-### `createUnTryOperator(Observable)`
+#### `createUnTryOperator(Observable)`
 
 Similar to `createTryOperator`, this returns an Observable operator
 that transforms one observable into another. However, where as `createTryOperator`
@@ -128,17 +171,17 @@ value of successes, and erring the stream for Failures.
 | ----------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Returns** | `function` | The operator function which will take a source Observable and return a derived Observable that emits Tries as described above. The source Observable passed to the returned function is expected to have a `subscribe` method which takes three arguments: onNext, onError, and onComplete. |
 
-### `Success()`
+#### `Success()`
 
-### `Failure()`
+#### `Failure()`
 
-## instance functions
+### instance functions
 
-### `isSuccess()`
+#### `isSuccess()`
 
-### `isFailure()`
+#### `isFailure()`
 
-### `get()`
+#### `get()`
 
 Gets the encapsulated value if it's successful, otherwise throws the
 encapsulated error.
@@ -151,7 +194,7 @@ encapsulated error.
 | ------- | -------------------------------------------- |
 | `Error` | The encapsualted error if this is a Failure. |
 
-### `toArray()`
+#### `toArray()`
 
 Returns a new array containing the encapsulated value for a Success, or
 no values (an empty array) for a Failure.
@@ -160,7 +203,7 @@ no values (an empty array) for a Failure.
 | ----------- | ----------- | --- |
 | **Returns** | `Array.<T>` |     |
 
-### `toNullable()`
+#### `toNullable()`
 
 Returns the encapsulated value of a success, or `null` for a failure.
 Note that the encapsulated value of a success may be a `null`.
@@ -169,7 +212,7 @@ Note that the encapsulated value of a success may be a `null`.
 | ----------- | --- | --- |
 | **Returns** | `T` |     |
 
-### `toPromise()`
+#### `toPromise()`
 
 Converts to this a settled promise. A success is converted to a promise that fulfills
 with the encapsulated value, a failure is converted to a promise that rejects with the
@@ -179,7 +222,7 @@ encapsulated error.
 | ----------- | ------------- | --- |
 | **Returns** | `Promise.<T>` |     |
 
-### `getOrElse(defaultValue)`
+#### `getOrElse(defaultValue)`
 
 Get the encpauslated value from a Success, or else return the given default
 value for a Failure.
@@ -192,7 +235,7 @@ value for a Failure.
 | ----------- | --- | --- |
 | **Returns** | `T` |     |
 
-### `orElse(defaultTryValue)`
+#### `orElse(defaultTryValue)`
 
 Somewhat like `getOrElse`, but this doesn't do the `get` portion of it, meaning it
 doesn't give you the encapsulated value, it gives you a Try. If this is a success, returns
@@ -202,7 +245,7 @@ itself. If this is a failure, returns the given value, _as is_.
 | ------------------- | --------- | ---------------------------------------------------------------- |
 | **defaultTryValue** | `Try.<T>` | The encapsulated value (or failure) to use if this is a failure. |
 
-### `forEach(consumer)`
+#### `forEach(consumer)`
 
 A Try acts like a collection of 0 or 1 values, and this applies the given consumer
 to each item in the collection. This is used for performing side effects.
@@ -217,7 +260,7 @@ Note that any errors thrown by the consumer will not be handled.
 | ----------- | --------- | --------------------- |
 | **Returns** | `Try.<T>` | returns the same Try. |
 
-### `catch(consumer)`
+#### `catch(consumer)`
 
 Used for performing side effects on failures: the given function will be invoked if and only
 if this Try is a failure, in which case it will be invoked with the encapsualted error.
@@ -232,7 +275,7 @@ Note that any errors thrown by the consumer will not be handled.
 | ----------- | --------- | --------------------- |
 | **Returns** | `Try.<T>` | returns the same Try. |
 
-### `tap(valueConsumer, errorConsumer)`
+#### `tap(valueConsumer, errorConsumer)`
 
 Used to perform side effects on success or failure.
 
@@ -247,7 +290,7 @@ Note that any errors thrown by the selected consumer will not be handled.
 | ----------- | --------- | --------------------- |
 | **Returns** | `Try.<T>` | return this same Try. |
 
-### `map(mapper)`
+#### `map(mapper)`
 
 Maps the encapsulated value of a success through the given mapper and returns a success encapsulating
 the result. If the mapper throws an error, it's encapsulated in a failure. If this try is already
@@ -261,7 +304,7 @@ a failure, it is returned as is.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<U>` |     |
 
-### `filter(predicate)`
+#### `filter(predicate)`
 
 If the Try is a success and its value passes the given predicate, the Try is returned.
 If it does not pass the predicate, or if the predicate throws, a Failure is returned.
@@ -275,7 +318,7 @@ If the Try is already a Failure, it is returned.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `recover(errorMapper)`
+#### `recover(errorMapper)`
 
 Recovers a Failure Try by mapping the encapsulated error into a valid value with the given mapper.
 If the given mapper throws an error, it's returned wrapped inside a new Failure. If this Try is a Success,
@@ -289,7 +332,7 @@ it is returned unchanged.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `recoverWith(recoverer)`
+#### `recoverWith(recoverer)`
 
 Possibly recovers a Failure Try by mapping the encapsulated error into a Try. This is similar to `recover`,
 but the error mapper's returned value is assumed to already be a Try, which is returned. If the mapper
@@ -303,7 +346,7 @@ throws an error, it's returned in a new Failure. If this Try is already a Succes
 | ----------- | --------- | --- |
 | **Returns** | `Try.<T>` |     |
 
-### `transform(mapSuccess, mapFailure)`
+#### `transform(mapSuccess, mapFailure)`
 
 Transforms this Try into another Try by transforming the encapsulated value of a success, or the encapsulated
 error of a failure through the given functions.
@@ -324,7 +367,7 @@ it in a Failure, use `safeTransform` instead.
 | ------- | ---------------------------------------------- |
 | `Error` | Anything thrown by the applied mapper funtion. |
 
-### `safeTransform(mapSuccess, mapFailure)`
+#### `safeTransform(mapSuccess, mapFailure)`
 
 Similar to `transform`, except that any error thrown by the selected mapper function is captured and returned as
 a Failure.
@@ -338,7 +381,7 @@ a Failure.
 | ----------- | --------- | --- |
 | **Returns** | `Try.<U>` |     |
 
-### `transmute(mapSuccess, mapFailure)`
+#### `transmute(mapSuccess, mapFailure)`
 
 Unpacks the Try into a value by applying one function for successes, and one for failures. Similar to `transform`
 except the mappers aren't assumed to return a Try.
@@ -356,7 +399,7 @@ except the mappers aren't assumed to return a Try.
 | ------- | ------------------------------------------------- |
 | `Error` | Any error thrown by the selected mapper function. |
 
-### `invert()`
+#### `invert()`
 
 Turns a Failure into a Success and vice-versa. A Failure is turned into a Success encapsulating the error as
 it's value. A Success is turned into a new Failure.
@@ -365,7 +408,7 @@ it's value. A Success is turned into a new Failure.
 | ----------- | ------------- | --- |
 | **Returns** | `Try.<Error>` |     |
 
-### `toOptional(Optional)`
+#### `toOptional(Optional)`
 
 Converts this to an Optional, as long as you can provide it with an appropriate factory. A success is returned as
 an Optional of the encapsulated value, a failure is returned as an empty.
@@ -378,7 +421,7 @@ an Optional of the encapsulated value, a failure is returned as an empty.
 | ----------- | -------------- | --- |
 | **Returns** | `Optional.<T>` |     |
 
-### `toOption(Option)`
+#### `toOption(Option)`
 
 Converts this to an Option using the provided factory object. A success is converted to an Option of the encapsulated value,
 a failure is converted to a None.
@@ -391,7 +434,7 @@ a failure is converted to a None.
 | ----------- | ------------ | --- |
 | **Returns** | `Option.<T>` |     |
 
-### `toMaybe(Maybe)`
+#### `toMaybe(Maybe)`
 
 Converts this to a Maybe using the provided factory. A success is converted to a Maybe of the encapsulated value using
 the provided `Just` function. A failure returns the `Nothing` value.
@@ -404,7 +447,7 @@ the provided `Just` function. A failure returns the `Nothing` value.
 | ----------- | ----------- | --- |
 | **Returns** | `Maybe.<T>` |     |
 
-### `toObservable(Observable)`
+#### `toObservable(Observable)`
 
 Converts this Try to an Observable stream: A success returns an Observable that emits the encapsulated
 value and then completes, a failure turns an Observable that err's.
@@ -417,7 +460,7 @@ value and then completes, a failure turns an Observable that err's.
 | ----------- | ---------------- | --- |
 | **Returns** | `Observable.<T>` |     |
 
-### `toSuppressingObservable(Observable)`
+#### `toSuppressingObservable(Observable)`
 
 Converts this Try to an Observable stream that supresses the encapsulated error of a failure. Same was
 `toObservable`, but the failure case just completes immediately.
@@ -430,7 +473,7 @@ Converts this Try to an Observable stream that supresses the encapsulated error 
 | ----------- | ---------------- | --- |
 | **Returns** | `Observable.<T>` |     |
 
-### `toHungObservable(Observable)`
+#### `toHungObservable(Observable)`
 
 Converts this Try to an Observable stream that works the same as a supressed observable stream returned
 by `toSuppressingObservable`, except the stream never completes (for either the failure or success case).
@@ -443,7 +486,7 @@ by `toSuppressingObservable`, except the stream never completes (for either the 
 | ----------- | ---------------- | --- |
 | **Returns** | `Observable.<T>` |     |
 
-### `permissive()`
+#### `permissive()`
 
 Returns a permissive Try which encapsulates both successes and failures as successes. For successes, returns
 a Try with the same encapsulated value. For failures, returns a success whose encapsulated value is the

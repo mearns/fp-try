@@ -39,13 +39,45 @@ exports.publish = (taffyData, opts, tutorials) => {
     });
     console.log("# `Try` interface");
     console.log("");
+    console.log("## Summary");
+    console.log("| Function | Return Type | Summary |");
+    console.log("| --- | --- | --- |");
     ["static", "instance"].forEach(scope => {
-        console.log(`## ${scope} functions`);
+        const funcName = func =>
+            scope === "static"
+                ? `Try.${func.def.name}`
+                : `Try::${func.def.name}`;
+
+        functions[scope].forEach(func => {
+            const params = func.def.params || [];
+            const paramString = params.map(p => p.name).join(", ");
+            const summary = (func.def.description || "").split(
+                /(\r|\n|\r\n)\1|(?<=\.)(?:\s+[A-Z]|\s*$)/,
+                1
+            )[0];
+            if (func.def.returns && func.def.returns.length !== 1) {
+                throw new Error(
+                    `don't know how to handle multiple returns: ${func.def.longname}`
+                );
+            }
+            const ret = (func.def.returns && func.def.returns[0]) || {};
+            console.log(
+                `| \`${funcName(func)}(${paramString})\` | ${typeToMarkdown(
+                    ret.type
+                )} | ${summary.replace(/[\r\n]+/g, " ")} |`
+            );
+        });
+    });
+
+    console.log("");
+    console.log("## Member Details");
+    ["static", "instance"].forEach(scope => {
+        console.log(`### ${scope} functions`);
         console.log("");
         functions[scope].forEach(func => {
             const params = func.def.params || [];
             console.log(
-                `### \`${func.def.name}(${params
+                `#### \`${func.def.name}(${params
                     .map(p => p.name)
                     .join(", ")})\``
             );
