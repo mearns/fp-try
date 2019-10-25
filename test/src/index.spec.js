@@ -549,7 +549,7 @@ describe("Try.js", () => {
             )
     );
 
-    testMethod("invert", def =>
+    testMethod("failed", def =>
         def
             .aSuccess("should be turned into a failure", expect => {
                 expect.value().to.satisfy(t => t.isFailure());

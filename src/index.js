@@ -61,6 +61,7 @@ class Try {}
  * @method orElse
  * @param {Try<T>} defaultTryValue The encapsulated value (or failure) to use if
  * this is a failure.
+ * @return {Try<T>}
  */
 /**
  * A Try acts like a collection of 0 or 1 values, and this applies the given consumer
@@ -189,7 +190,7 @@ class Try {}
  * Turns a Failure into a Success and vice-versa. A Failure is turned into a Success encapsulating the error as
  * it's value. A Success is turned into a new Failure.
  * @memberof Try#
- * @method invert
+ * @method failed
  * @returns {Try<Error>}
  */
 /**
@@ -529,7 +530,7 @@ class Failure extends Try {
         return Try.flatApply(() => mapFailure(this._error));
     }
 
-    invert() {
+    failed() {
         return Try.Success(this._error);
     }
 
@@ -659,8 +660,8 @@ class Success extends Try {
         return Try.flatApply(() => mapSuccess(this._value));
     }
 
-    invert() {
-        return Try.Failure(new Error("Inverted a Successful Try"));
+    failed() {
+        return Try.Failure(new Error("Successful Try did not fail"));
     }
 
     toOptional(Optional) {

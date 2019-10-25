@@ -18,7 +18,7 @@ module.exports = {
     transform: (vMap, eMap) => t => t.transform(vMap, eMap),
     safeTransform: (vMap, eMap) => t => t.safeTransform(vMap, eMap),
     transmute: (vMap, eMap) => t => t.transmute(vMap, eMap),
-    invert: () => t => t.invert(),
+    failed: () => t => t.failed(),
     toOptional: Optional => t => t.toOptional(Optional),
     toOption: Option => t => t.toOption(Option),
     toMaybe: Maybe => t => t.toMaybe(Maybe),
