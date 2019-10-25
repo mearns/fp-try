@@ -289,8 +289,8 @@ Try.flatApply = trySupplier => {
 };
 
 /**
- * Given a Promise for a value, returns a Promise for a Try of that value;
- * the returned promise will always fulfill: if the given promise fulfills, the
+ * Given a Promise for a value, returns a Promise for a Try of that value.
+ * The returned promise will always fulfill: if the given promise fulfills, the
  * returned promise will fulfill with a success encapsulating the fulfillment value;
  * if the given promise rejects, the returned promise will fulfill with a failure
  * Try encapsulating the rejection error.
@@ -403,10 +403,9 @@ Try.createTryOperator = Observable => {
 
 /**
  * Similar to `createTryOperator`, this returns an Observable operator
- * that transforms one observable into another. However, where as `createTryOperator`
- * returns an operator that wraps emitted values and errors in Tries, this function
- * returns an "untry" operator that unpacks emitted Tries, emitting the encapsulated
- * value of successes, and erring the stream for Failures.
+ * that unpacks Try values emitted by an observable. Encapsulated values of successes
+ * are emitted as values, and a failure emitted by the source stream is unpacked and
+ * its encapsulated error is put out as an error.
  *
  * @param {function(function(Observer):Subscription): Observable} Observable The factory function
  * for creating a new Observable from a subscribe function. Now that this is not called with
@@ -433,10 +432,24 @@ Try.createUnTryOperator = Observable => {
         );
 };
 
+/**
+ * Creates a successful Try encapsulating the given value. This is usually not used
+ * directly, you probably want to use `apply` or another factory function.
+ *
+ * @param {T} value
+ * @returns {Try<T>}
+ */
 Try.Success = value => {
     return new Success(value);
 };
 
+/**
+ * Creates a failure Try encapsulating the given error. This is usually not used
+ * directly, you probably want to use `apply` or another factory function.
+ *
+ * @param {Error} error
+ * @returns {Try<T>}
+ */
 Try.Failure = error => {
     return new Failure(error);
 };
