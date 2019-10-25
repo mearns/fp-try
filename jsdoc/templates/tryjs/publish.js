@@ -60,7 +60,7 @@ exports.publish = (taffyData, opts, tutorials) => {
                 console.log("|-----------|------|-------------|");
                 params.forEach(p => {
                     console.log(
-                        `| ${p.name} | ${typeToMarkdown(
+                        `| **${p.name}** | ${typeToMarkdown(
                             p.type
                         )} | ${(p.description &&
                             p.description.replace(/[\r\n]+/g, " ")) ||
@@ -88,7 +88,17 @@ exports.publish = (taffyData, opts, tutorials) => {
                 );
             }
 
-            // XXX: throws
+            if (func.def.exceptions) {
+                console.log("");
+                console.log("| Throws | When |");
+                console.log("| ---- | ---- |");
+                func.def.exceptions.forEach(ex => {
+                    console.log(
+                        `| \`${(ex.type && typeToMarkdown(ex.type)) ||
+                            "Error"}\` | ${ex.description || ""} |`
+                    );
+                });
+            }
 
             // XXX: Other?
             console.log("");
