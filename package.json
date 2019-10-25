@@ -35,11 +35,12 @@
     "test": "nyc npm run test-only",
     "test-only": "mocha test/src/",
     "verify": "npm run check && npm run test",
-    "start": "node ."
+    "start": "node .",
+    "docs": "jsdoc -t ./jsdoc/templates/tryjs src/ > docs/interface.md"
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run pretty -s"
+      "pre-commit": "npm run pretty -s && npm run docs"
     }
   },
   "devDependencies": {
