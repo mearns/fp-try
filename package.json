@@ -25,12 +25,13 @@
   },
   "main": "src/index.js",
   "files": [
-    "src/**/*"
+    "dist/**/*"
   ],
   "scripts": {
     "clean": "rimraf dist/ build/ coverage/ .nyc_output/",
     "pretty": "pretty-quick --staged",
     "pretty-all": "prettier --write src/**/*.js ./*.js ./*.json ./*.yaml ./*.yml",
+    "build": "tsc",
     "check": "eslint src/ test/ --ext .js --format codeframe",
     "test": "nyc npm run test-only",
     "test-only": "mocha test/src/",
@@ -63,7 +64,8 @@
     "pretty-quick": "^1.10.0",
     "rxjs": "^6.5.3",
     "sinon": "^7.5.0",
-    "sinon-chai": "^3.3.0"
+    "sinon-chai": "^3.3.0",
+    "typescript": "^3.7.2"
   },
   "dependencies": {}
 }

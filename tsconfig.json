@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "outDir": "dist/",
+    "module": "system",
+    "sourceMap": true,
+    "target": "es2015"
+  },
+  "include": ["src/**/*"]
+}

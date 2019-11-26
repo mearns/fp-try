@@ -1,5 +1,5 @@
-module.exports = {
-    isSuccess: () => t => t.isSuccess(),
+export default {
+    isSuccess: <T>() => (t: Try<T>) => t.isSuccess(),
     isFailure: () => t => t.isFailure(),
     toNullable: () => t => t.toNullable(),
     toArray: () => t => t.toArray(),
