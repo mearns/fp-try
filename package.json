@@ -40,7 +40,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run pretty -s && npm run docs"
+      "pre-commit": "npm run docs && npm run pretty -s"
     }
   },
   "devDependencies": {
