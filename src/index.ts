@@ -140,6 +140,54 @@ abstract class Try<T> implements BaseTry<T> {
         valueConsumer: (val: T) => void,
         errorConsumer: (e: Error) => void
     ): Try<T>;
+
+    /**
+     * Maps the encapsulated value of a success through the given mapper and returns a success encapsulating
+     * the result. If the mapper throws an error, it's encapsulated in a failure. If this try is already
+     * a failure, a new failure (of the appropriate type) encapsulating the same error is returned.
+     * @memberof Try#
+     * @method map
+     * @param {function(T):U} mapper
+     * @returns {Try<U>}
+     */
+    abstract map<U>(mapper: (T) => U): Try<U>;
+
+    /**
+     * If the Try is a success and its value passes the given predicate, the Try is returned.
+     * If it does not pass the predicate, or if the predicate throws, a Failure is returned.
+     * If the Try is already a Failure, it is returned.
+     * @memberof Try#
+     * @method filter
+     * @param {function(T): boolean} predicate The predicate function to test this against.
+     * @returns {Try<T>}
+     */
+    abstract filter(predicate: (T) => boolean): Try<T>;
+
+    /**
+     * Recovers a Failure Try by mapping the encapsulated error into a valid value with the given mapper.
+     * If the given mapper throws an error, it's returned wrapped inside a new Failure. If this Try is a Success,
+     * it is returned unchanged.
+     *
+     * @memberof Try#
+     * @method recover
+     * @param {function(Error): T} errorMapper Function that turns an error into a value, or throws an error if
+     * the given error is not recoverable.
+     * @returns {Try<T>}
+     */
+    abstract recover(errorMapper: (Error) => T): Try<T>;
+
+    /**
+     * Possibly recovers a Failure Try by mapping the encapsulated error into a Try. This is similar to `recover`,
+     * but the error mapper's returned value is assumed to already be a Try, which is returned. If the mapper
+     * throws an error, it's returned in a new Failure. If this Try is already a Success, it is returned as is.
+     *
+     * @memberof Try#
+     * @method recoverWith
+     * @param {function(Error):Try<T>} recoverer Function that turns an error into a Try, with a failure for unreocverable
+     * errors (or errors that occurreed attemptig to recover), or with a success encapsulating a recovered value/
+     * @returns {Try<T>}
+     */
+    abstract recoverWith(recoverer: (Error) => Try<T>): Try<T>;
 }
 
 class WrapperTry<T> extends Try<T> {
@@ -202,7 +250,7 @@ class WrapperTry<T> extends Try<T> {
     }
 
     forEach(consumer: (val: T) => void): Try<T> {
-        let v;
+        let v: T;
         try {
             v = this.get();
         } catch {
@@ -225,15 +273,82 @@ class WrapperTry<T> extends Try<T> {
         valueConsumer: (val: T) => void,
         errorConsumer: (e: Error) => void
     ): Try<T> {
-        let v;
+        let v: T;
         try {
-            v = this.get();
+            v = this.base.get();
         } catch (error) {
             errorConsumer(error);
             return this;
         }
         valueConsumer(v);
         return this;
+    }
+
+    map<U>(mapper: (T) => U): Try<U> {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            return new Failure(error);
+        }
+        let u: U;
+        try {
+            u = mapper(v);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return new Success(u);
+    }
+
+    filter(predicate: (T) => boolean): Try<T> {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            return this;
+        }
+        let passes: boolean;
+        try {
+            passes = predicate(v);
+        } catch (predicateError) {
+            return new Failure(predicateError);
+        }
+        if (passes) {
+            return this;
+        }
+        return new Failure(new Error("Predicate does not hold for this value"));
+    }
+
+    recover(errorMapper: (Error) => T): Try<T> {
+        let e: Error;
+        try {
+            this.base.get();
+            return this;
+        } catch (error) {
+            e = error;
+        }
+        let v: T;
+        try {
+            v = errorMapper(e);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return new Success(v);
+    }
+
+    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
+        let e: Error;
+        try {
+            this.base.get();
+            return this;
+        } catch (error) {
+            e = error;
+        }
+        try {
+            return recoverer(e);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
     }
 }
 
@@ -293,6 +408,37 @@ class Success<T> extends Try<T> {
         valueConsumer(this.value);
         return this;
     }
+
+    map<U>(mapper: (T) => U): Try<U> {
+        let u: U;
+        try {
+            u = mapper(this.value);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return new Success(u);
+    }
+
+    filter(predicate: (T) => boolean): Try<T> {
+        let passes: boolean;
+        try {
+            passes = predicate(this.value);
+        } catch (predicateError) {
+            return new Failure(predicateError);
+        }
+        if (passes) {
+            return this;
+        }
+        return new Failure(new Error("Predicate does not hold for this value"));
+    }
+
+    recover(errorMapper: (Error) => T): Try<T> {
+        return this;
+    }
+
+    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
+        return this;
+    }
 }
 
 class Failure<T> extends Try<T> {
@@ -350,5 +496,31 @@ class Failure<T> extends Try<T> {
     ): Failure<T> {
         errorConsumer(this.error);
         return this;
+    }
+
+    map<U>(mapper: (T) => U): Try<U> {
+        return new Failure(this.error);
+    }
+
+    filter(predicate: (T) => boolean): Try<T> {
+        return this;
+    }
+
+    recover(errorMapper: (Error) => T): Try<T> {
+        let v: T;
+        try {
+            v = errorMapper(this.error);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return new Success(v);
+    }
+
+    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
+        try {
+            return recoverer(this.error);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
     }
 }
