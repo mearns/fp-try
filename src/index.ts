@@ -1,7 +1,48 @@
-interface BaseTry<V> {
+interface BaseTry<T> {
     isSuccess: () => boolean;
-    get: () => V;
+    get: () => T;
 }
+
+interface Optional<T> {
+    isPresent: () => boolean;
+    get: () => T;
+}
+
+interface OptionalFactory<O extends Optional<T>, T> {
+    of: (value: T) => O;
+    empty: () => O;
+}
+
+interface Option<T> {
+    isDefined: () => boolean;
+    get: () => T | null;
+}
+
+interface OptionFactory<O extends Option<T>, T> {
+    Some: (value: T) => O;
+    None: () => O;
+}
+
+//  * @param {{map: function(function(T):Try<T>): {getOrElse: function(function():Try<T>)}}} maybe A Maybe object
+interface Maybe<T> {
+    map: <U>(mapper: (v: T) => U) => Maybe<U>;
+    getOrElse: (defaultSupplier: () => T) => T;
+}
+
+interface MaybeFactory<M extends Maybe<T>, T> {
+    Just: (T) => M;
+    readonly Nothing: M;
+}
+
+interface ObservableSubscriber<T> {
+    next: (T) => void;
+    error: (Error) => void;
+    complete: () => void;
+}
+
+type ObservableFactory<O, T> = (
+    subscriberFunc: (subscriber: ObservableSubscriber<T>) => void
+) => O;
 
 abstract class Try<T> implements BaseTry<T> {
     static from<T>(base: BaseTry<T>): Try<T> {
@@ -9,6 +50,109 @@ abstract class Try<T> implements BaseTry<T> {
             return base as Try<T>;
         }
         return new WrapperTry(base);
+    }
+
+    /**
+     * Execute the given function and encapsulate the result in a Try, whether successful
+     * or not. If the func returns a value, this is returned
+     * encapsulated in a Success. If the func throws an error, it is captured
+     * in a Failure and returned.
+     * @param {function():T} supplier The function to invoke.
+     * @returns {Try<T>}
+     */
+    static apply<T>(supplier: () => T): Try<T> {
+        let v: T;
+        try {
+            v = supplier();
+        } catch (error) {
+            return new Failure(error);
+        }
+        return new Success(v);
+    }
+
+    /**
+     * Similar to `apply`, this executes a function and captures any exceptions thrown into
+     * a Failure. The difference from `apply` is that the given function is assumed to already
+     * return a `Try`, which is *not* wrapped in another `Try`, but returned as is.
+     * @param {function():Try<T>} trySupplier
+     * @returns {Try<T>}
+     */
+    static flatApply<T>(trySupplier: () => Try<T>): Try<T> {
+        try {
+            return trySupplier();
+        } catch (error) {
+            return new Failure(error);
+        }
+    }
+
+    /**
+     * Given a Promise for a value, returns a Promise for a Try of that value.
+     * The returned promise will always fulfill: if the given promise fulfills, the
+     * returned promise will fulfill with a success encapsulating the fulfillment value;
+     * if the given promise rejects, the returned promise will fulfill with a failure
+     * Try encapsulating the rejection error.
+     *
+     * @param {Promise<T>} p The promise to convert to a Try.
+     * @returns {Promise<Try<T>>}
+     */
+    static fromPromise<T>(p: Promise<T>): Promise<Try<T>> {
+        return p.then(
+            (v: T) => new Success(v),
+            (error: Error) => new Failure(error)
+        );
+    }
+
+    /**
+     * Convert a scala-like Option object to a Try. If the option is defined (as defined by it's
+     * `isDefined` method returning a truthy value), it's value (as returned by it's `get` method)
+     * is returned encapsulated in a success. Otherwise a Failure is returned.
+     *
+     * Note that error thrown attempting to invoke the method of the option are not handled, they will
+     * be thrown. The `get` method is _only_ invoked if `isDefined` returns a truthy value.
+     *
+     * @param {Option<T>} option An Option object.
+     * @returns {Try<T>}
+     * @see Try.fromOptional
+     */
+    static fromOption<T>(option: Option<T>): Try<T> {
+        if (option.isDefined()) {
+            return new Success(option.get());
+        }
+        return new Failure(new Error("Option has no defined value"));
+    }
+
+    /**
+     * Convert a java-like Optional object to a Try. If the optional is present (as defined by it's
+     * `isPresent` method returning a truthy value), it's value (as returned by it's `get` method)
+     * is returned encapsulated in a success. Otherwise a Failure is returned.
+     *
+     * Note that error thrown attempting to invoke the method of the option are not handled, they will
+     * be thrown. The `get` method is _only_ invoked if `isPresent` returns a truthy value.
+     *
+     * @param {Optional<T>} optional An Optional object.
+     * @returns {Try<T>}
+     * @see Try.fromOption
+     */
+    static fromOptional<T>(optional: Optional<T>): Try<T> {
+        if (optional.isPresent()) {
+            return new Success(optional.get());
+        }
+        return new Failure(new Error("Optional value was not present"));
+    }
+
+    /**
+     * Converts a Maybe to a Try. Assumes the Maybe implements the `map` and `getOrElse` methods;
+     * the former returns another Maybe with the encapsulated value (if any) transformed according to
+     * the given function; the latter returns the encapsulated value or invokes the provided supplier
+     * if the Maybe has no encapsulated value and returns the result.
+     *
+     * @param {{map: function(function(T):Try<T>): {getOrElse: function(function():Try<T>)}}} maybe A Maybe object
+     * @returns {Try<T>}
+     */
+    static fromMaybe<T>(maybe: Maybe<T>): Try<T> {
+        return maybe
+            .map<Try<T>>((v: T) => new Success(v))
+            .getOrElse(() => new Failure(new Error("Maybe was nothing")));
     }
 
     /**
@@ -188,6 +332,146 @@ abstract class Try<T> implements BaseTry<T> {
      * @returns {Try<T>}
      */
     abstract recoverWith(recoverer: (Error) => Try<T>): Try<T>;
+
+    /**
+     * Transforms this Try into another Try by transforming the encapsulated value of a success, or the encapsulated
+     * error of a failure through the given functions.
+     *
+     * **Note**: if the applied function throws an error, it _is not captured_, it is thrown. If you want to capture
+     * it in a Failure, use `safeTransform` instead.
+     *
+     * @memberof Try#
+     * @method transform
+     * @param {function(T):Try<U>} mapSuccess The function applied to the encapsulated value of a success, to get the new Try.
+     * @param {function(Error):Try<U>} mapFailure The function applied to the encapsulated error of a failure, to get the new Try.
+     * @returns {Try<U>}
+     * @throws Anything thrown by the applied mapper funtion.
+     * @see Try#safeTransform
+     */
+    abstract transform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U>;
+
+    /**
+     * Similar to `transform`, except that any error thrown by the selected mapper function is captured and returned as
+     * a Failure.
+     *
+     * @memberof Try#
+     * @method safeTransform
+     * @param {Function(T):Try<U>} mapSuccess The function applied to the encapsulated value of a success, to get the new Try.
+     * @param {Function(Error):Try<U>} mapFailure The function applied to the encapsulated error of a failure, to get the new Try.
+     * @returns {Try<U>}
+     */
+    abstract safeTransform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U>;
+
+    /**
+     * Unpacks the Try into a value by applying one function for successes, and one for failures. Similar to `transform`
+     * except the mappers aren't assumed to return a Try.
+     *
+     * @memberof Try#
+     * @method transmute
+     * @param {function(T):U} mapSuccess
+     * @param {function(Error):U} mapFailure
+     * @returns {U}
+     * @throws Any error thrown by the selected mapper function.
+     */
+    abstract transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U;
+
+    /**
+     * Turns a Failure into a Success and vice-versa. A Failure is turned into a Success encapsulating the error as
+     * it's value. A Success is turned into a new Failure.
+     *
+     * You can kind of think of this as an assertion that the try is a failure: so if it is, the assertion passes,
+     * so it results in a Success. If it's not a Failure, then the assertion fails, so it results in a Failure.
+     *
+     * @memberof Try#
+     * @method failed
+     * @returns {Try<Error>}
+     */
+    abstract failed(): Try<Error>;
+
+    /**
+     * Converts this to an Optional, as long as you can provide it with an appropriate factory. A success is returned as
+     * an Optional of the encapsulated value, a failure is returned as an empty.
+     * @memberof Try#
+     * @method toOptional
+     * @param {OptionalFactory<O, T>} Optional an object that provides the
+     * `of` and `empty` factory functions for creating an Optional (denoted by type parameter `O`).
+     * @returns {O}
+     * @see Try#toOption
+     */
+    abstract toOptional<O extends Optional<T>>(
+        Optional: OptionalFactory<O, T>
+    ): O;
+
+    /**
+     * Converts this to an Option using the provided factory object. A success is converted to an Option of the encapsulated value,
+     * a failure is converted to a None.
+     * @memberof Try#
+     * @method toOption
+     * @param {OptionFactory<O, T>} Option An object that provides the
+     * `Some` and `None` factory function for creating an Option.
+     * @returns {O}
+     * @see Try#toOptional
+     */
+    abstract toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O;
+
+    /**
+     * Converts this to a Maybe using the provided factory. A success is converted to a Maybe of the encapsulated value using
+     * the provided `Just` function. A failure returns the `Nothing` value.
+     * @memberof Try#
+     * @method toMaybe
+     * @param {MaybeFactory<O, T>} Maybe An object that provides the
+     * `Just` factory function for creating a Maybe, and the `Nothing` singleton Maybe instance.
+     * @returns {M}
+     */
+    abstract toMaybe<M extends Maybe<T>>(Maybe: MaybeFactory<M, T>): M;
+
+    /**
+     * Converts this Try to an Observable stream: A success returns an Observable that emits the encapsulated
+     * value and then completes, a failure turns an Observable that err's.
+     * @memberof Try#
+     * @method toObservable
+     * @param {ObservableFactory<O, T>} Observable a factory function that is called to create
+     * the returned observable by providing it with the "subscribe" function. Note that this is _not_ called with `new`,
+     * so if your `Observable` is a constructor, you'll need to encapsulate it in a factory function.
+     * @returns {O}
+     */
+    abstract toObservable<O>(Observable: ObservableFactory<O, T>): O;
+
+    /**
+     * Converts this Try to an Observable stream that supresses the encapsulated error of a failure. Same was
+     * `toObservable`, but the failure case just completes immediately.
+     * @memberof Try#
+     * @method toSuppressingObservable
+     * @param {ObservableFactory<O, T>} Observable
+     * @returns {O}
+     */
+    abstract toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O;
+
+    /**
+     * Converts this Try to an Observable stream that works the same as a supressed observable stream returned
+     * by `toSuppressingObservable`, except the stream never completes (for either the failure or success case).
+     * @memberof Try#
+     * @method toHungObservable
+     * @param {ObservableFactory<O, T>} Observable
+     * @returns {O}
+     */
+    abstract toHungObservable<O>(Observable: ObservableFactory<O, T>): O;
+
+    /**
+     * Returns a permissive Try which encapsulates both successes and failures as successes. For successes, returns
+     * a Try with the same encapsulated value. For failures, returns a success whose encapsulated value is the
+     * encapsulated error.
+     * @memberof Try#
+     * @method permissive
+     * @returns {Try<T|Error>}
+     */
+    abstract permissive(): Try<T | Error>;
 }
 
 class WrapperTry<T> extends Try<T> {
@@ -350,6 +634,143 @@ class WrapperTry<T> extends Try<T> {
             return new Failure(mapperError);
         }
     }
+
+    transform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            return mapFailure(error);
+        }
+        return mapSuccess(v);
+    }
+
+    safeTransform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            let t: Try<U>;
+            try {
+                t = mapFailure(error);
+            } catch (mapperError) {
+                return new Failure(mapperError);
+            }
+            return t;
+        }
+        let t: Try<U>;
+        try {
+            t = mapSuccess(v);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return t;
+    }
+
+    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            return mapFailure(error);
+        }
+        return mapSuccess(v);
+    }
+
+    failed(): Try<Error> {
+        try {
+            this.base.get();
+        } catch (error) {
+            return new Success(error);
+        }
+        return new Failure(new Error("Try is not a Failure"));
+    }
+
+    toOptional<O extends Optional<T>>(Optional: OptionalFactory<O, T>): O {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch {
+            return Optional.empty();
+        }
+        return Optional.of(v);
+    }
+
+    toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch {
+            return Option.None();
+        }
+        return Option.Some(v);
+    }
+
+    toMaybe<M extends Maybe<T>>(Maybe: MaybeFactory<M, T>): M {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch {
+            return Maybe.Nothing;
+        }
+        return Maybe.Just(v);
+    }
+
+    toObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            let v: T;
+            try {
+                v = this.base.get();
+            } catch (error) {
+                subscriber.error(error);
+                return;
+            }
+            subscriber.next(v);
+            subscriber.complete();
+        });
+    }
+
+    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            let v: T;
+            try {
+                v = this.base.get();
+            } catch (error) {
+                subscriber.complete();
+                return;
+            }
+            subscriber.next(v);
+            subscriber.complete();
+        });
+    }
+
+    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            let v: T;
+            try {
+                v = this.base.get();
+            } catch (error) {
+                return;
+            }
+            subscriber.next(v);
+        });
+    }
+
+    permissive(): Try<T | Error> {
+        let v: T;
+        try {
+            v = this.base.get();
+        } catch (error) {
+            return new Success(error);
+        }
+        return new Success<T | Error>(v);
+    }
 }
 
 class Success<T> extends Try<T> {
@@ -439,6 +860,70 @@ class Success<T> extends Try<T> {
     recoverWith(recoverer: (Error) => Try<T>): Try<T> {
         return this;
     }
+
+    transform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        return mapSuccess(this.value);
+    }
+
+    safeTransform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        let v: Try<U>;
+        try {
+            v = mapSuccess(this.value);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return v;
+    }
+
+    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
+        return mapSuccess(this.value);
+    }
+
+    failed(): Failure<Error> {
+        return new Failure(new Error("Try is not a Failure"));
+    }
+
+    toOptional<O extends Optional<T>>(Optional: OptionalFactory<O, T>): O {
+        return Optional.of(this.value);
+    }
+
+    toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O {
+        return Option.Some(this.value);
+    }
+
+    toMaybe<M extends Maybe<T>>(Maybe: MaybeFactory<M, T>): M {
+        return Maybe.Just(this.value);
+    }
+
+    toObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable(subscriber => {
+            subscriber.next(this.value);
+            subscriber.complete();
+        });
+    }
+
+    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable(subscriber => {
+            subscriber.next(this.value);
+            subscriber.complete();
+        });
+    }
+
+    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            subscriber.next(this.value);
+        });
+    }
+
+    permissive(): Try<T | Error> {
+        return new Success<T | Error>(this.value);
+    }
 }
 
 class Failure<T> extends Try<T> {
@@ -522,5 +1007,65 @@ class Failure<T> extends Try<T> {
         } catch (mapperError) {
             return new Failure(mapperError);
         }
+    }
+
+    transform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        return mapFailure(this.error);
+    }
+
+    safeTransform<U>(
+        mapSuccess: (T) => Try<U>,
+        mapFailure: (Error) => Try<U>
+    ): Try<U> {
+        let v: Try<U>;
+        try {
+            v = mapFailure(this.error);
+        } catch (mapperError) {
+            return new Failure(mapperError);
+        }
+        return v;
+    }
+
+    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
+        return mapFailure(this.error);
+    }
+
+    failed(): Success<Error> {
+        return new Success(this.error);
+    }
+
+    toOptional<O extends Optional<T>>(Optional: OptionalFactory<O, T>): O {
+        return Optional.empty();
+    }
+
+    toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O {
+        return Option.None();
+    }
+
+    toMaybe<M extends Maybe<T>>(Maybe: MaybeFactory<M, T>): M {
+        return Maybe.Nothing;
+    }
+
+    toObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            subscriber.error(this.error);
+        });
+    }
+
+    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {
+            subscriber.complete();
+        });
+    }
+
+    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
+        return Observable((subscriber: ObservableSubscriber<T>) => {});
+    }
+
+    permissive(): Try<T | Error> {
+        return new Success<T | Error>(this.error);
     }
 }
