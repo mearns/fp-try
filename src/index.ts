@@ -1,5 +1,4 @@
-interface BaseTry<T> {
-    isSuccess: () => boolean;
+interface FailableSupplier<T> {
     get: () => T;
 }
 
@@ -34,22 +33,59 @@ interface MaybeFactory<M extends Maybe<T>, T> {
     readonly Nothing: M;
 }
 
+/**
+ * An Observable is a stream you can subscribe by telling it what to
+ * do when a new value is emitted, what to do when an error is emitted,
+ * and what to do when the stream is completed.
+ */
+interface Observable<T> {
+    subscribe: (
+        onNext?: (value: T) => void,
+        onError?: (error: Error) => void,
+        onComplete?: () => void
+    ) => any;
+}
+
+/**
+ * A thing that subscribes to an Observer. This is conceptually tied to
+ * the event handlers you pass to the `subscribe` method of
+ * an `Observable`, but this is typically an internal type that the observable
+ * library creates from those functions. Since the event handlers are all optional
+ * in `Observerable::subscribe`, the library will fill in suitable noop handlers
+ * on the ObservableSubscriber before passing it to the subscriber-func, so you
+ * don't have to worry about checking to see if they're present or not.
+ */
 interface ObservableSubscriber<T> {
-    next: (T) => void;
-    error: (Error) => void;
+    next: (value: T) => void;
+    error: (error: Error) => void;
     complete: () => void;
 }
 
-type ObservableFactory<O, T> = (
+/**
+ * Denotes a factory function for creating an Observable. An Observable is
+ * created when you invoke the factory function with a subscriber
+ * function, which describes what to do when an `ObservableSubscriber` asks
+ * to subscribe to the Observable.
+ */
+type ObservableFactory<O extends Observable<T>, T> = (
     subscriberFunc: (subscriber: ObservableSubscriber<T>) => void
 ) => O;
 
-abstract class Try<T> implements BaseTry<T> {
-    static from<T>(base: BaseTry<T>): Try<T> {
-        if (base instanceof Try) {
-            return base as Try<T>;
-        }
-        return new WrapperTry(base);
+abstract class Try<T> implements FailableSupplier<T> {
+    /**
+     * Not recommended, you should generally prefer using `Try.apply` instead
+     * of instantiating a new Success or Failure directly.
+     */
+    static Succcess<T>(value: T): Try<T> {
+        return new Success(value);
+    }
+
+    /**
+     * Not recommended, you should generally prefer using `Try.apply` instead
+     * of instantiating a new Success or Failure directly.
+     */
+    static Failure<T>(error: Error): Try<T> {
+        return new Failure(error);
     }
 
     /**
@@ -57,17 +93,24 @@ abstract class Try<T> implements BaseTry<T> {
      * or not. If the func returns a value, this is returned
      * encapsulated in a Success. If the func throws an error, it is captured
      * in a Failure and returned.
-     * @param {function():T} supplier The function to invoke.
+     * @param {function():T} provider The function to invoke.
      * @returns {Try<T>}
      */
-    static apply<T>(supplier: () => T): Try<T> {
+    static apply<T>(provider: () => T): Try<T> {
         let v: T;
         try {
-            v = supplier();
+            v = provider();
         } catch (error) {
             return new Failure(error);
         }
         return new Success(v);
+    }
+
+    static from<T>(base: FailableSupplier<T>) {
+        if (base instanceof Try) {
+            return base;
+        }
+        return Try.apply(() => base.get());
     }
 
     /**
@@ -153,6 +196,86 @@ abstract class Try<T> implements BaseTry<T> {
         return maybe
             .map<Try<T>>((v: T) => new Success(v))
             .getOrElse(() => new Failure(new Error("Maybe was nothing")));
+    }
+
+    /**
+     * Creates an operator for Observables in the style of rxjs. The operator
+     * will map an observable to one that emits tries: values will be mapped
+     * to successes encapsulating those values, and an error will be mapped to
+     * a failure encapsulating that error. The generated observable will
+     * terminate when the source observable terminate or errors.
+     *
+     * @param {ObservableFactory<O2, Try<T>>} Observable The factory function
+     * for creating a new Observable from a subscribe function. Note that this is not called with
+     * `new`, so if your function is a costructor, you'll need to encapsulate that in another function.
+     * For instance, for rxjs, this could be `(subscribe) => new rxjs.Observable(subscribe)`.
+     * The `subscribe` function that will be passed to `Observable` is expected to be called
+     * with an `Observer` object that has `next`, `error`, and `complete` methods.
+     *
+     * @returns {function(O):O2} The operator function which will take a source Observable
+     * and return a derived Observable that emits Tries as described above. The source Observable passed
+     * to the returned function is expected to have a `subscribe` method which takes three arguments:
+     * onNext, onError, and onComplete.
+     */
+    static createTryOperator<
+        O extends Observable<T>,
+        O2 extends Observable<Try<T>>,
+        T
+    >(Observable: ObservableFactory<O2, Try<T>>): (source: O) => O2 {
+        return (source: O) =>
+            Observable((observer: ObservableSubscriber<Try<T>>) => {
+                source.subscribe(
+                    (v: T) => observer.next(new Success(v)),
+                    (e: Error) => {
+                        observer.next(new Failure(e));
+                        observer.complete();
+                    },
+                    () => observer.complete()
+                );
+            });
+    }
+
+    /**
+     * Similar to `createTryOperator`, this returns an Observable operator
+     * that unpacks Try values emitted by an observable. Encapsulated values of successes
+     * are emitted as values, and a failure emitted by the source stream is unpacked and
+     * its encapsulated error is put out as an error.
+     *
+     * @param {ObservableFactory<O, T>} Observable The factory function
+     * for creating a new Observable from a subscribe function. Now that this is not called with
+     * `new`, so if your function is costructor, you'll need to encapsulate that in a function.
+     * For instance, for rxjs, this could be `(subscribe) => new rxjs.Observable(subscribe)`.
+     * The `subscribe` function that will be passed to `Observable` is expected to be called
+     * with an `Observer` object that has `next`, `error`, and `complete` methods.
+     *
+     * @returns {function(O2): O} The operator function which will take a source Observable
+     * and return a derived Observable that emits Tries as described above. The source Observable passed
+     * to the returned function is expected to have a `subscribe` method which takes three arguments:
+     * onNext, onError, and onComplete.
+     */
+
+    static createUnTryOperator<
+        O extends Observable<T>,
+        O2 extends Observable<Try<T>>,
+        T
+    >(Observable: ObservableFactory<O, T>): (source: O2) => O {
+        return (source: O2) =>
+            Observable((observer: ObservableSubscriber<T>) =>
+                source.subscribe(
+                    (t: Try<T>) => {
+                        try {
+                            t.tap(
+                                (v: T) => observer.next(v),
+                                (e: Error) => observer.error(e)
+                            );
+                        } catch (error) {
+                            observer.error(error);
+                        }
+                    },
+                    (e: Error) => observer.error(e),
+                    () => observer.complete()
+                )
+            );
     }
 
     /**
@@ -441,7 +564,9 @@ abstract class Try<T> implements BaseTry<T> {
      * so if your `Observable` is a constructor, you'll need to encapsulate it in a factory function.
      * @returns {O}
      */
-    abstract toObservable<O>(Observable: ObservableFactory<O, T>): O;
+    abstract toObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O;
 
     /**
      * Converts this Try to an Observable stream that supresses the encapsulated error of a failure. Same was
@@ -451,7 +576,9 @@ abstract class Try<T> implements BaseTry<T> {
      * @param {ObservableFactory<O, T>} Observable
      * @returns {O}
      */
-    abstract toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O;
+    abstract toSuppressingObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O;
 
     /**
      * Converts this Try to an Observable stream that works the same as a supressed observable stream returned
@@ -461,7 +588,9 @@ abstract class Try<T> implements BaseTry<T> {
      * @param {ObservableFactory<O, T>} Observable
      * @returns {O}
      */
-    abstract toHungObservable<O>(Observable: ObservableFactory<O, T>): O;
+    abstract toHungObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O;
 
     /**
      * Returns a permissive Try which encapsulates both successes and failures as successes. For successes, returns
@@ -472,305 +601,6 @@ abstract class Try<T> implements BaseTry<T> {
      * @returns {Try<T|Error>}
      */
     abstract permissive(): Try<T | Error>;
-}
-
-class WrapperTry<T> extends Try<T> {
-    private readonly base: BaseTry<T>;
-
-    constructor(base: BaseTry<T>) {
-        super();
-        this.base = base;
-    }
-
-    isSuccess(): boolean {
-        return this.base.isSuccess();
-    }
-
-    isFailure(): boolean {
-        return !this.isSuccess();
-    }
-
-    get(): T {
-        return this.base.get();
-    }
-
-    toArray(): Array<T> {
-        try {
-            return [this.base.get()];
-        } catch (error) {
-            return [];
-        }
-    }
-
-    toNullable(): T | null {
-        try {
-            return this.base.get();
-        } catch (error) {
-            return null;
-        }
-    }
-
-    async toPromise(): Promise<T> {
-        try {
-            return this.base.get();
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    getOrElse(defaultValue: T): T {
-        try {
-            return this.base.get();
-        } catch (error) {
-            return defaultValue;
-        }
-    }
-
-    getOr(defaultTryValue: Try<T>): Try<T> {
-        if (this.base.isSuccess()) {
-            return this;
-        }
-        return defaultTryValue;
-    }
-
-    forEach(consumer: (val: T) => void): Try<T> {
-        let v: T;
-        try {
-            v = this.get();
-        } catch {
-            return this;
-        }
-        consumer(v);
-        return this;
-    }
-
-    catch(consumer: (e: Error) => void): Try<T> {
-        try {
-            this.get();
-        } catch (error) {
-            consumer(error);
-        }
-        return this;
-    }
-
-    tap(
-        valueConsumer: (val: T) => void,
-        errorConsumer: (e: Error) => void
-    ): Try<T> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            errorConsumer(error);
-            return this;
-        }
-        valueConsumer(v);
-        return this;
-    }
-
-    map<U>(mapper: (T) => U): Try<U> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            return new Failure(error);
-        }
-        let u: U;
-        try {
-            u = mapper(v);
-        } catch (mapperError) {
-            return new Failure(mapperError);
-        }
-        return new Success(u);
-    }
-
-    filter(predicate: (T) => boolean): Try<T> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            return this;
-        }
-        let passes: boolean;
-        try {
-            passes = predicate(v);
-        } catch (predicateError) {
-            return new Failure(predicateError);
-        }
-        if (passes) {
-            return this;
-        }
-        return new Failure(new Error("Predicate does not hold for this value"));
-    }
-
-    recover(errorMapper: (Error) => T): Try<T> {
-        let e: Error;
-        try {
-            this.base.get();
-            return this;
-        } catch (error) {
-            e = error;
-        }
-        let v: T;
-        try {
-            v = errorMapper(e);
-        } catch (mapperError) {
-            return new Failure(mapperError);
-        }
-        return new Success(v);
-    }
-
-    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
-        let e: Error;
-        try {
-            this.base.get();
-            return this;
-        } catch (error) {
-            e = error;
-        }
-        try {
-            return recoverer(e);
-        } catch (mapperError) {
-            return new Failure(mapperError);
-        }
-    }
-
-    transform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
-    ): Try<U> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            return mapFailure(error);
-        }
-        return mapSuccess(v);
-    }
-
-    safeTransform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
-    ): Try<U> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            let t: Try<U>;
-            try {
-                t = mapFailure(error);
-            } catch (mapperError) {
-                return new Failure(mapperError);
-            }
-            return t;
-        }
-        let t: Try<U>;
-        try {
-            t = mapSuccess(v);
-        } catch (mapperError) {
-            return new Failure(mapperError);
-        }
-        return t;
-    }
-
-    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            return mapFailure(error);
-        }
-        return mapSuccess(v);
-    }
-
-    failed(): Try<Error> {
-        try {
-            this.base.get();
-        } catch (error) {
-            return new Success(error);
-        }
-        return new Failure(new Error("Try is not a Failure"));
-    }
-
-    toOptional<O extends Optional<T>>(Optional: OptionalFactory<O, T>): O {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch {
-            return Optional.empty();
-        }
-        return Optional.of(v);
-    }
-
-    toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch {
-            return Option.None();
-        }
-        return Option.Some(v);
-    }
-
-    toMaybe<M extends Maybe<T>>(Maybe: MaybeFactory<M, T>): M {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch {
-            return Maybe.Nothing;
-        }
-        return Maybe.Just(v);
-    }
-
-    toObservable<O>(Observable: ObservableFactory<O, T>): O {
-        return Observable((subscriber: ObservableSubscriber<T>) => {
-            let v: T;
-            try {
-                v = this.base.get();
-            } catch (error) {
-                subscriber.error(error);
-                return;
-            }
-            subscriber.next(v);
-            subscriber.complete();
-        });
-    }
-
-    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
-        return Observable((subscriber: ObservableSubscriber<T>) => {
-            let v: T;
-            try {
-                v = this.base.get();
-            } catch (error) {
-                subscriber.complete();
-                return;
-            }
-            subscriber.next(v);
-            subscriber.complete();
-        });
-    }
-
-    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
-        return Observable((subscriber: ObservableSubscriber<T>) => {
-            let v: T;
-            try {
-                v = this.base.get();
-            } catch (error) {
-                return;
-            }
-            subscriber.next(v);
-        });
-    }
-
-    permissive(): Try<T | Error> {
-        let v: T;
-        try {
-            v = this.base.get();
-        } catch (error) {
-            return new Success(error);
-        }
-        return new Success<T | Error>(v);
-    }
 }
 
 class Success<T> extends Try<T> {
@@ -901,21 +731,27 @@ class Success<T> extends Try<T> {
         return Maybe.Just(this.value);
     }
 
-    toObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable(subscriber => {
             subscriber.next(this.value);
             subscriber.complete();
         });
     }
 
-    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toSuppressingObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable(subscriber => {
             subscriber.next(this.value);
             subscriber.complete();
         });
     }
 
-    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toHungObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable((subscriber: ObservableSubscriber<T>) => {
             subscriber.next(this.value);
         });
@@ -1049,19 +885,25 @@ class Failure<T> extends Try<T> {
         return Maybe.Nothing;
     }
 
-    toObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable((subscriber: ObservableSubscriber<T>) => {
             subscriber.error(this.error);
         });
     }
 
-    toSuppressingObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toSuppressingObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable((subscriber: ObservableSubscriber<T>) => {
             subscriber.complete();
         });
     }
 
-    toHungObservable<O>(Observable: ObservableFactory<O, T>): O {
+    toHungObservable<O extends Observable<T>>(
+        Observable: ObservableFactory<O, T>
+    ): O {
         return Observable((subscriber: ObservableSubscriber<T>) => {});
     }
 
