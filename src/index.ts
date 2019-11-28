@@ -1,77 +1,17 @@
-interface FailableSupplier<T> {
-    get: () => T;
-}
+import {
+    FailableSupplier,
+    Option,
+    OptionFactory,
+    Optional,
+    OptionalFactory,
+    Maybe,
+    MaybeFactory,
+    Observable,
+    ObservableFactory,
+    ObservableSubscriber
+} from "./common-types";
 
-interface Optional<T> {
-    isPresent: () => boolean;
-    get: () => T;
-}
-
-interface OptionalFactory<O extends Optional<T>, T> {
-    of: (value: T) => O;
-    empty: () => O;
-}
-
-interface Option<T> {
-    isDefined: () => boolean;
-    get: () => T | null;
-}
-
-interface OptionFactory<O extends Option<T>, T> {
-    Some: (value: T) => O;
-    None: () => O;
-}
-
-//  * @param {{map: function(function(T):Try<T>): {getOrElse: function(function():Try<T>)}}} maybe A Maybe object
-interface Maybe<T> {
-    map: <U>(mapper: (v: T) => U) => Maybe<U>;
-    getOrElse: (defaultSupplier: () => T) => T;
-}
-
-interface MaybeFactory<M extends Maybe<T>, T> {
-    Just: (T) => M;
-    readonly Nothing: M;
-}
-
-/**
- * An Observable is a stream you can subscribe by telling it what to
- * do when a new value is emitted, what to do when an error is emitted,
- * and what to do when the stream is completed.
- */
-interface Observable<T> {
-    subscribe: (
-        onNext?: (value: T) => void,
-        onError?: (error: Error) => void,
-        onComplete?: () => void
-    ) => any;
-}
-
-/**
- * A thing that subscribes to an Observer. This is conceptually tied to
- * the event handlers you pass to the `subscribe` method of
- * an `Observable`, but this is typically an internal type that the observable
- * library creates from those functions. Since the event handlers are all optional
- * in `Observerable::subscribe`, the library will fill in suitable noop handlers
- * on the ObservableSubscriber before passing it to the subscriber-func, so you
- * don't have to worry about checking to see if they're present or not.
- */
-interface ObservableSubscriber<T> {
-    next: (value: T) => void;
-    error: (error: Error) => void;
-    complete: () => void;
-}
-
-/**
- * Denotes a factory function for creating an Observable. An Observable is
- * created when you invoke the factory function with a subscriber
- * function, which describes what to do when an `ObservableSubscriber` asks
- * to subscribe to the Observable.
- */
-type ObservableFactory<O extends Observable<T>, T> = (
-    subscriberFunc: (subscriber: ObservableSubscriber<T>) => void
-) => O;
-
-abstract class Try<T> implements FailableSupplier<T> {
+export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Not recommended, you should generally prefer using `Try.apply` instead
      * of instantiating a new Success or Failure directly.
@@ -417,7 +357,13 @@ abstract class Try<T> implements FailableSupplier<T> {
      * @param {function(T):U} mapper
      * @returns {Try<U>}
      */
-    abstract map<U>(mapper: (T) => U): Try<U>;
+    abstract map<U>(mapper: (t: T) => U): Try<U>;
+
+    /**
+     * Like `map`, except the mapper itself returns a Try.
+     * @param mapper
+     */
+    abstract flatMap<U>(mapper: (t: T) => Try<U>): Try<U>;
 
     /**
      * If the Try is a success and its value passes the given predicate, the Try is returned.
@@ -660,14 +606,24 @@ class Success<T> extends Try<T> {
         return this;
     }
 
-    map<U>(mapper: (T) => U): Try<U> {
+    map<U>(mapper: (t: T) => U): Try<U> {
         let u: U;
         try {
             u = mapper(this.value);
         } catch (mapperError) {
-            return new Failure(mapperError);
+            return new Failure<U>(mapperError);
         }
         return new Success(u);
+    }
+
+    flatMap<U>(mapper: (t: T) => Try<U>): Try<U> {
+        let t: Try<U>;
+        try {
+            mapper(this.value);
+        } catch (mapperError) {
+            return new Failure<U>(mapperError);
+        }
+        return t;
     }
 
     filter(predicate: (T) => boolean): Try<T> {
@@ -819,8 +775,12 @@ class Failure<T> extends Try<T> {
         return this;
     }
 
-    map<U>(mapper: (T) => U): Try<U> {
-        return new Failure(this.error);
+    map<U>(mapper: (t: T) => U): Try<U> {
+        return new Failure<U>(this.error);
+    }
+
+    flatMap<U>(mapper: (t: T) => Try<U>): Try<U> {
+        return new Failure<U>(this.error);
     }
 
     filter(predicate: (T) => boolean): Try<T> {
