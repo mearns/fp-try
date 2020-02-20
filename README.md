@@ -1,6 +1,8 @@
 # fp-try
 
-A functional-programming-esque `Try` interface, inspired by the Scala type. A `Try` represents
+[**Web Site**](https://mearns.github.io/fp-try/)
+
+A functional-programming `Try` interface, inspired by the Scala type. A `Try` represents
 the results of an operation that may have failed, encapsulating either the successful result
 as a `Success`, or the error as a `Failure`.
 
@@ -26,6 +28,8 @@ function mapResultsToUser(rs: ResultSet): User {
     /* ... */
 }
 ```
+
+For details on the API, see https://mearns.github.io/fp-try/.
 
 There are a lot of anti-patterns with this type. For more information on how to use
 it effectively, see our article:
