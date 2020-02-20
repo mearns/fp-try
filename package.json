@@ -14,12 +14,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mearns/try.js.git"
+    "url": "git+https://github.com/mearns/fp-try.git"
   },
   "bugs": {
-    "url": "https://github.com/mearns/try.js/issues"
+    "url": "https://github.com/mearns/fp-try/issues"
   },
-  "homepage": "https://github.com/mearns/try.js#readme",
+  "homepage": "https://mearns.github.io/fp-try/",
   "engines": {
     "node": "^10.9.0"
   },
