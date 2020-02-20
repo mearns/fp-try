@@ -11,9 +11,9 @@ import {
     ObservableSubscriber
 } from "./common-types";
 
-import Try from "./index";
+import Try from "./try";
 
-export default {
+const unary = {
     isSuccess: <T>(): ((t: Try<T>) => boolean) => (t: Try<T>) => t.isSuccess(),
 
     isFailure: <T>(): ((t: Try<T>) => boolean) => (t: Try<T>) => t.isFailure(),
@@ -107,3 +107,6 @@ export default {
 
     permissive: () => (t: Try<any>) => t.permissive()
 };
+
+export default unary;
+export type Unary = typeof unary;

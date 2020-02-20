@@ -2,7 +2,7 @@
 /* eslint no-unused-expressions:0 */
 
 // Module under test
-const Try = require("../..").default;
+const Try = require("../..");
 
 // Support
 const chai = require("chai");

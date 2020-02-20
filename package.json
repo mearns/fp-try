@@ -38,7 +38,7 @@
     "check:readme": "remark --no-stdout README.md",
     "check:code": "eslint ./ test/ --ext .js --ext .ts --format codeframe",
     "check": "npm run check:code && npm run check:readme",
-    "compile": "tsc",
+    "compile": "tsc && echo 'module.exports = require(\"./try.js\").default;' > dist/index.js",
     "build": "npm run clean && npm run compile && npm run verify",
     "docs": "typedoc --out out/docs --mode file --includeVersion --exclude \"+(node_modules|dist|out)/**/*\" --includeDeclarations src",
     "prepublishOnly": "rimraf node_modules && npm install && npm audit && npm run build && npm run docs"

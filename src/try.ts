@@ -628,7 +628,7 @@ class Success<T> extends Try<T> {
         return t;
     }
 
-    filter(predicate: (T) => boolean): Try<T> {
+    filter(predicate: (value: T) => boolean): Try<T> {
         let passes: boolean;
         try {
             passes = predicate(this.value);
@@ -641,24 +641,24 @@ class Success<T> extends Try<T> {
         return new Failure(new Error("Predicate does not hold for this value"));
     }
 
-    recover(errorMapper: (Error) => T): Try<T> {
+    recover(errorMapper: (e: Error) => T): Try<T> {
         return this;
     }
 
-    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
+    recoverWith(recoverer: (e: Error) => Try<T>): Try<T> {
         return this;
     }
 
     transform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
+        mapSuccess: (value: T) => Try<U>,
+        mapFailure: (e: Error) => Try<U>
     ): Try<U> {
         return mapSuccess(this.value);
     }
 
     safeTransform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
+        mapSuccess: (value: T) => Try<U>,
+        mapFailure: (e: Error) => Try<U>
     ): Try<U> {
         let v: Try<U>;
         try {
@@ -669,7 +669,7 @@ class Success<T> extends Try<T> {
         return v;
     }
 
-    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
+    transmute<U>(mapSuccess: (value: T) => U, mapFailure: (e: Error) => U): U {
         return mapSuccess(this.value);
     }
 
@@ -785,11 +785,11 @@ class Failure<T> extends Try<T> {
         return new Failure<U>(this.error);
     }
 
-    filter(predicate: (T) => boolean): Try<T> {
+    filter(predicate: (val: T) => boolean): Try<T> {
         return this;
     }
 
-    recover(errorMapper: (Error) => T): Try<T> {
+    recover(errorMapper: (e: Error) => T): Try<T> {
         let v: T;
         try {
             v = errorMapper(this.error);
@@ -799,7 +799,7 @@ class Failure<T> extends Try<T> {
         return new Success(v);
     }
 
-    recoverWith(recoverer: (Error) => Try<T>): Try<T> {
+    recoverWith(recoverer: (e: Error) => Try<T>): Try<T> {
         try {
             return recoverer(this.error);
         } catch (mapperError) {
@@ -808,15 +808,15 @@ class Failure<T> extends Try<T> {
     }
 
     transform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
+        mapSuccess: (val: T) => Try<U>,
+        mapFailure: (e: Error) => Try<U>
     ): Try<U> {
         return mapFailure(this.error);
     }
 
     safeTransform<U>(
-        mapSuccess: (T) => Try<U>,
-        mapFailure: (Error) => Try<U>
+        mapSuccess: (val: T) => Try<U>,
+        mapFailure: (e: Error) => Try<U>
     ): Try<U> {
         let v: Try<U>;
         try {
@@ -827,7 +827,7 @@ class Failure<T> extends Try<T> {
         return v;
     }
 
-    transmute<U>(mapSuccess: (T) => U, mapFailure: (Error) => U): U {
+    transmute<U>(mapSuccess: (val: T) => U, mapFailure: (e: Error) => U): U {
         return mapFailure(this.error);
     }
 
@@ -872,7 +872,9 @@ class Failure<T> extends Try<T> {
     permissive(): Try<T | Error> {
         return new Success<T | Error>(this.error);
     }
+
+    static unary: Unary;
 }
 
-import unary from "./unary";
+import unary, { Unary } from "./unary";
 Try.unary = unary;
