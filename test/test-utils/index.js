@@ -1,6 +1,6 @@
 /* eslint-env mocha */
 
-const Try = require("../../src/index");
+const Try = require("../..").default;
 const { expect } = require("chai");
 const sinon = require("sinon");
 

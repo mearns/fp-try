@@ -12,11 +12,13 @@ import {
 } from "./common-types";
 
 export default abstract class Try<T> implements FailableSupplier<T> {
+    static unary;
+
     /**
      * Not recommended, you should generally prefer using `Try.apply` instead
      * of instantiating a new Success or Failure directly.
      */
-    static Succcess<T>(value: T): Try<T> {
+    static Success<T>(value: T): Try<T> {
         return new Success(value);
     }
 
@@ -290,7 +292,7 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * this is a failure.
      * @return {Try<T>}
      */
-    abstract getOr(defaultTryValue: Try<T>): Try<T>;
+    abstract orElse(defaultTryValue: Try<T>): Try<T>;
 
     /**
      * A Try acts like a collection of 0 or 1 values, and this applies the given consumer
@@ -562,7 +564,7 @@ class Success<T> extends Try<T> {
     }
 
     get(): T {
-        return;
+        return this.value;
     }
 
     isFailure(): boolean {
@@ -585,7 +587,7 @@ class Success<T> extends Try<T> {
         return this.value;
     }
 
-    getOr(defaultTryValue: Try<T>): Success<T> {
+    orElse(defaultTryValue: Try<T>): Success<T> {
         return this;
     }
 
@@ -619,7 +621,7 @@ class Success<T> extends Try<T> {
     flatMap<U>(mapper: (t: T) => Try<U>): Try<U> {
         let t: Try<U>;
         try {
-            mapper(this.value);
+            t = mapper(this.value);
         } catch (mapperError) {
             return new Failure<U>(mapperError);
         }
@@ -754,7 +756,7 @@ class Failure<T> extends Try<T> {
         return defaultValue;
     }
 
-    getOr<D extends Try<T>>(defaultTryValue: D): D {
+    orElse<D extends Try<T>>(defaultTryValue: D): D {
         return defaultTryValue;
     }
 
@@ -871,3 +873,6 @@ class Failure<T> extends Try<T> {
         return new Success<T | Error>(this.error);
     }
 }
+
+import unary from "./unary";
+Try.unary = unary;

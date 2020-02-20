@@ -31,8 +31,8 @@ export default {
     getOrElse: <T>(def: T): ((t: Try<T>) => T) => (t: Try<T>) =>
         t.getOrElse(def),
 
-    getOr: <T>(def: Try<T>): ((t: Try<T>) => Try<T>) => (t: Try<T>) =>
-        t.getOr(def),
+    orElse: <T>(def: Try<T>): ((t: Try<T>) => Try<T>) => (t: Try<T>) =>
+        t.orElse(def),
 
     forEach: <T>(consumer: (t: T) => void): ((t: Try<T>) => Try<T>) => (
         t: Try<T>
@@ -93,9 +93,17 @@ export default {
         Maybe: MaybeFactory<M, T>
     ): ((t: Try<T>) => M) => (t: Try<T>) => t.toMaybe(Maybe),
 
-    toObservable: Observable => t => t.toObservable(Observable),
-    toSuppressingObservable: Observable => t =>
-        t.toSuppressingObservable(Observable),
-    toHungObservable: Observable => t => t.toHungObservable(Observable),
-    permissive: () => t => t.permissive()
+    toObservable: <O extends Observable<T>, T>(
+        Observable: ObservableFactory<O, T>
+    ) => (t: Try<T>) => t.toObservable(Observable),
+
+    toSuppressingObservable: <O extends Observable<T>, T>(
+        Observable: ObservableFactory<O, T>
+    ) => (t: Try<T>) => t.toSuppressingObservable(Observable),
+
+    toHungObservable: <O extends Observable<T>, T>(
+        Observable: ObservableFactory<O, T>
+    ) => (t: Try<T>) => t.toHungObservable(Observable),
+
+    permissive: () => (t: Try<any>) => t.permissive()
 };

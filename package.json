@@ -23,21 +23,25 @@
   "engines": {
     "node": "^10.9.0"
   },
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "files": [
     "dist/**/*"
   ],
   "scripts": {
-    "clean": "rimraf dist/ build/ coverage/ .nyc_output/",
+    "jsdocs": "jsdoc -t ./jsdoc/templates/tryjs src/ > docs/interface.md",
+    "clean": "rimraf dist/ out/ build/ coverage/ .nyc_output/",
     "pretty": "pretty-quick --staged",
-    "pretty-all": "prettier --write src/**/*.js ./*.js ./*.json ./*.yaml ./*.yml",
-    "build": "tsc",
-    "check": "eslint src/ test/ --ext .js --format codeframe",
+    "pretty-all": "prettier --write ./index.ts ./test/**/*.js ./*.json ./*.yaml ./*.yml",
     "test": "nyc npm run test-only",
-    "test-only": "mocha test/src/",
+    "test-only": "mocha -r ts-node/register ./test/**/*.spec.*",
     "verify": "npm run check && npm run test",
-    "start": "node .",
-    "docs": "jsdoc -t ./jsdoc/templates/tryjs src/ > docs/interface.md"
+    "check:readme": "remark --no-stdout README.md",
+    "check:code": "eslint ./ test/ --ext .js --ext .ts --format codeframe",
+    "check": "npm run check:code && npm run check:readme",
+    "compile": "tsc",
+    "build": "npm run clean && npm run compile && npm run verify",
+    "docs": "typedoc --out out/docs --mode file --includeVersion --exclude \"+(node_modules|dist|out)/**/*\" --includeDeclarations src",
+    "prepublishOnly": "rimraf node_modules && npm install && npm audit && npm run build && npm run docs"
   },
   "husky": {
     "hooks": {
@@ -45,27 +49,35 @@
     }
   },
   "devDependencies": {
+    "@types/chai": "4.2.7",
+    "@types/mocha": "5.2.7",
+    "@types/sinon-chai": "3.2.3",
+    "@typescript-eslint/eslint-plugin": "2.11.0",
+    "@typescript-eslint/parser": "2.11.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "eslint": "^5.16.0",
-    "eslint-config-prettier": "^4.3.0",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.17.2",
-    "eslint-plugin-node": "^9.0.1",
-    "eslint-plugin-prettier": "^3.1.0",
-    "eslint-plugin-promise": "^4.1.1",
-    "eslint-plugin-standard": "^4.0.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "6.7.0",
+    "eslint-config-standard": "14.1.0",
+    "eslint-plugin-import": "2.19.1",
+    "eslint-plugin-node": "10.0.0",
+    "eslint-plugin-prettier": "3.1.1",
+    "eslint-plugin-promise": "4.2.1",
+    "eslint-plugin-standard": "4.0.1",
     "husky": "^2.3.0",
-    "jsdoc": "^3.6.3",
-    "mocha": "^6.2.2",
+    "mocha": "^7.0.1",
     "node": "^10.9.0",
-    "nyc": "^14.1.1",
-    "prettier": "^1.17.1",
-    "pretty-quick": "^1.10.0",
+    "nyc": "^15.0.0",
+    "prettier": "1.19.1",
+    "pretty-quick": "2.0.1",
+    "remark-cli": "7.0.0",
+    "rimraf": "2.6.2",
     "rxjs": "^6.5.3",
-    "sinon": "^7.5.0",
-    "sinon-chai": "^3.3.0",
-    "typescript": "^3.7.2"
+    "sinon": "7.2.3",
+    "sinon-chai": "3.3.0",
+    "ts-node": "^8.6.2",
+    "typedoc": "^0.16.10",
+    "typescript": "^3.7.5"
   },
   "dependencies": {}
 }
