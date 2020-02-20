@@ -27,7 +27,7 @@ function testMethod(name, def) {
         };
         return apiFunc;
     };
-    api.aSuccess = oneSidedApi("a success", (s, f) => s);
+    api.aSuccess = oneSidedApi("a success", s => s);
     api.aFailure = oneSidedApi("a failure", (s, f) => f);
 
     def(api);

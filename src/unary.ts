@@ -1,17 +1,17 @@
+/* eslint @typescript-eslint/explicit-function-return-type: 0 */
+
 import {
-    FailableSupplier,
-    Option,
+    Option, // eslint-disable-line @typescript-eslint/no-unused-vars
     OptionFactory,
-    Optional,
+    Optional, // eslint-disable-line @typescript-eslint/no-unused-vars
     OptionalFactory,
-    Maybe,
+    Maybe, // eslint-disable-line @typescript-eslint/no-unused-vars
     MaybeFactory,
-    Observable,
-    ObservableFactory,
-    ObservableSubscriber
+    Observable, // eslint-disable-line @typescript-eslint/no-unused-vars
+    ObservableFactory
 } from "./common-types";
 
-import Try from "./try";
+import Try from "./core";
 
 const unary = {
     isSuccess: <T>(): ((t: Try<T>) => boolean) => (t: Try<T>) => t.isSuccess(),
@@ -105,7 +105,7 @@ const unary = {
         Observable: ObservableFactory<O, T>
     ) => (t: Try<T>) => t.toHungObservable(Observable),
 
-    permissive: () => (t: Try<any>) => t.permissive()
+    permissive: <T>() => (t: Try<T>) => t.permissive()
 };
 
 export default unary;

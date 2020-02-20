@@ -42,7 +42,7 @@ export interface Observable<T> {
         onNext?: (value: T) => void,
         onError?: (error: Error) => void,
         onComplete?: () => void
-    ) => any;
+    ) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 /**
