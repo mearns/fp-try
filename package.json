@@ -40,7 +40,7 @@
     "compile": "tsc && echo 'module.exports = require(\"./try.js\").default;' > dist/index.js",
     "build": "npm run clean && npm run compile && npm run verify",
     "docs": "typedoc --out out/docs --mode file --includeVersion --exclude \"+(node_modules|dist|out)/**/*\" --includeDeclarations src",
-    "prepublishOnly": "rimraf node_modules && npm install && npm audit && npm run build && npm run docs"
+    "prepublishOnly": "npm run clean && npm audit && npm run build && npm run docs"
   },
   "husky": {
     "hooks": {
