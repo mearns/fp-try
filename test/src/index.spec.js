@@ -20,7 +20,7 @@ const rxjs = require("rxjs");
 chai.use(require("chai-as-promised"));
 chai.use(require("sinon-chai"));
 
-describe("Try.js", () => {
+describe("fp-try as a JavaScript module", () => {
     testMethod("isSuccess", def =>
         def
             .aSuccess("should return true", expect => expect.value().to.be.true)

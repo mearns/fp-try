@@ -1,5 +1,5 @@
 {
-  "name": "try.js",
+  "name": "fp-try",
   "version": "0.1.0",
   "description": "A Try encapsulates the result of an operation that may have failed.",
   "keywords": [
@@ -28,7 +28,6 @@
     "dist/**/*"
   ],
   "scripts": {
-    "jsdocs": "jsdoc -t ./jsdoc/templates/tryjs src/ > docs/interface.md",
     "clean": "rimraf dist/ out/ build/ coverage/ .nyc_output/",
     "pretty": "pretty-quick --staged",
     "pretty-all": "prettier --write ./index.ts ./test/**/*.js ./*.json ./*.yaml ./*.yml",

@@ -1,4 +1,11 @@
+/**
+ * A Supplier type that could fail (throw an exception) instead
+ * of actually supplying the value.
+ */
 export interface FailableSupplier<T> {
+    /**
+     * Supplies one value, or throws an error.
+     */
     get: () => T;
 }
 

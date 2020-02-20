@@ -13,6 +13,13 @@ import {
     ObservableSubscriber
 } from "./common-types";
 
+/**
+ * A Try represents the results of an operation that might have failed,
+ * enapsulating either the successful result value, _or_ the error that
+ * occurred.
+ *
+ * @param T The type of a successful value.
+ */
 export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Not recommended, you should generally prefer using `Try.apply` instead
@@ -220,23 +227,13 @@ export default abstract class Try<T> implements FailableSupplier<T> {
             );
     }
 
-    /**
-     * @memberof Try#
-     * @method isSuccess
-     */
     abstract isSuccess(): boolean;
 
-    /**
-     * @memberof Try#
-     * @method isFailure
-     */
     abstract isFailure(): boolean;
 
     /**
      * Gets the encapsulated value if it's successful, otherwise throws the
      * encapsulated error.
-     * @memberof Try#
-     * @method get
      * @returns {T} the encapsulated value
      * @throws The encapsualted error if this is a Failure.
      */
@@ -245,8 +242,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Returns a new array containing the encapsulated value for a Success, or
      * no values (an empty array) for a Failure.
-     * @memberof Try#
-     * @method toArray
      * @returns {Array<T>}
      */
     abstract toArray(): Array<T>;
@@ -254,8 +249,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Returns the encapsulated value of a success, or `null` for a failure.
      * Note that the encapsulated value of a success may be a `null`.
-     * @memberof Try#
-     * @method toNullable
      * @returns {T?}
      */
     abstract toNullable(): T | null;
@@ -264,8 +257,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Converts to this a settled promise. A success is converted to a promise that fulfills
      * with the encapsulated value, a failure is converted to a promise that rejects with the
      * encapsulated error.
-     * @memberof Try#
-     * @method toPromise
      * @returns {Promise<T>}
      */
     abstract toPromise(): Promise<T>;
@@ -274,8 +265,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Get the encpauslated value from a Success, or else return the given default
      * value for a Failure.
      *
-     * @memberof Try#
-     * @method getOrElse
      * @param {T} defaultValue The default value to return if this is a Failure.
      * @returns {T}
      */
@@ -286,8 +275,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * doesn't give you the encapsulated value, it gives you a Try. If this is a success, returns
      * itself. If this is a failure, returns the given value, _as is_.
      *
-     * @memberof Try#
-     * @method orElse
      * @param {Try<T>} defaultTryValue The encapsulated value (or failure) to use if
      * this is a failure.
      * @return {Try<T>}
@@ -300,14 +287,12 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      *
      * Note that any errors thrown by the consumer will not be handled.
      *
-     * @memberof Try#
-     * @method forEach
      * @param {function(T):void} consumer A function that will consume the value, if there is one.
      * @returns {Try<T>} returns the same Try.
      * @throw Anything thrown by `consumer`.
-     * @see Try#tap
-     * @see Try#catch
-     * @see Try#toArray
+     * @see [[Try.tap]]
+     * @see [[Try.catch]]
+     * @see [[Try.toArray]]
      */
     abstract forEach(consumer: (val: T) => void): Try<T>;
 
@@ -317,14 +302,12 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      *
      * Note that any errors thrown by the consumer will not be handled.
      *
-     * @memberof Try#
-     * @method catch
      * @param {function(Error):Void} consumer A function that will consume the error, if there is one.
      * @returns {Try<T>} returns the same Try.
      * @throw Anything thrown by `consumer`.
-     * @see Try#forEach For a similar mechanism, but for successes and their values.
-     * @see Try#tap
-     * @see Try#recover If you want map to a new Try in the event of an error.
+     * @see [[Try.forEach]] For a similar mechanism, but for successes and their values.
+     * @see [[Try.tap]]
+     * @see [[Try.recover]] If you want map to a new Try in the event of an error.
      */
     abstract catch(consumer: (e: Error) => void): Try<T>;
 
@@ -333,17 +316,15 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      *
      * Note that any errors thrown by the selected consumer will not be handled.
      *
-     * @memberof Try#
-     * @method tap
      * @param {function(T):void} valueConsumer The function that will be called to consume the encapsulated
      * value if this Try is a success.
      * @param {function(Error):void} errorConsumer The function that will be called to consume the
      * encapsulated error if this Try is a failure.
      * @throw Anything thrown by the invoked consuerm.
      * @returns {Try<T>} return this same Try.
-     * @see Try#forEach
-     * @see Try#catch
-     * @see Try#transform
+     * @see [[Try.forEach]]
+     * @see [[Try.catch]]
+     * @see [[Try.transform]]
      */
     abstract tap(
         valueConsumer: (val: T) => void,
@@ -354,8 +335,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Maps the encapsulated value of a success through the given mapper and returns a success encapsulating
      * the result. If the mapper throws an error, it's encapsulated in a failure. If this try is already
      * a failure, a new failure (of the appropriate type) encapsulating the same error is returned.
-     * @memberof Try#
-     * @method map
      * @param {function(T):U} mapper
      * @returns {Try<U>}
      */
@@ -371,8 +350,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * If the Try is a success and its value passes the given predicate, the Try is returned.
      * If it does not pass the predicate, or if the predicate throws, a Failure is returned.
      * If the Try is already a Failure, it is returned.
-     * @memberof Try#
-     * @method filter
      * @param {function(T): boolean} predicate The predicate function to test this against.
      * @returns {Try<T>}
      */
@@ -383,8 +360,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * If the given mapper throws an error, it's returned wrapped inside a new Failure. If this Try is a Success,
      * it is returned unchanged.
      *
-     * @memberof Try#
-     * @method recover
      * @param {function(Error): T} errorMapper Function that turns an error into a value, or throws an error if
      * the given error is not recoverable.
      * @returns {Try<T>}
@@ -396,8 +371,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * but the error mapper's returned value is assumed to already be a Try, which is returned. If the mapper
      * throws an error, it's returned in a new Failure. If this Try is already a Success, it is returned as is.
      *
-     * @memberof Try#
-     * @method recoverWith
      * @param {function(Error):Try<T>} recoverer Function that turns an error into a Try, with a failure for unreocverable
      * errors (or errors that occurreed attemptig to recover), or with a success encapsulating a recovered value/
      * @returns {Try<T>}
@@ -411,13 +384,11 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * **Note**: if the applied function throws an error, it _is not captured_, it is thrown. If you want to capture
      * it in a Failure, use `safeTransform` instead.
      *
-     * @memberof Try#
-     * @method transform
      * @param {function(T):Try<U>} mapSuccess The function applied to the encapsulated value of a success, to get the new Try.
      * @param {function(Error):Try<U>} mapFailure The function applied to the encapsulated error of a failure, to get the new Try.
      * @returns {Try<U>}
      * @throws Anything thrown by the applied mapper funtion.
-     * @see Try#safeTransform
+     * @see [[Try.safeTransform]]
      */
     abstract transform<U>(
         mapSuccess: (T) => Try<U>,
@@ -428,8 +399,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Similar to `transform`, except that any error thrown by the selected mapper function is captured and returned as
      * a Failure.
      *
-     * @memberof Try#
-     * @method safeTransform
      * @param {Function(T):Try<U>} mapSuccess The function applied to the encapsulated value of a success, to get the new Try.
      * @param {Function(Error):Try<U>} mapFailure The function applied to the encapsulated error of a failure, to get the new Try.
      * @returns {Try<U>}
@@ -443,8 +412,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Unpacks the Try into a value by applying one function for successes, and one for failures. Similar to `transform`
      * except the mappers aren't assumed to return a Try.
      *
-     * @memberof Try#
-     * @method transmute
      * @param {function(T):U} mapSuccess
      * @param {function(Error):U} mapFailure
      * @returns {U}
@@ -459,8 +426,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * You can kind of think of this as an assertion that the try is a failure: so if it is, the assertion passes,
      * so it results in a Success. If it's not a Failure, then the assertion fails, so it results in a Failure.
      *
-     * @memberof Try#
-     * @method failed
      * @returns {Try<Error>}
      */
     abstract failed(): Try<Error>;
@@ -468,12 +433,10 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Converts this to an Optional, as long as you can provide it with an appropriate factory. A success is returned as
      * an Optional of the encapsulated value, a failure is returned as an empty.
-     * @memberof Try#
-     * @method toOptional
      * @param {OptionalFactory<O, T>} Optional an object that provides the
      * `of` and `empty` factory functions for creating an Optional (denoted by type parameter `O`).
      * @returns {O}
-     * @see Try#toOption
+     * @see [[Try.toOption]]
      */
     abstract toOptional<O extends Optional<T>>(
         Optional: OptionalFactory<O, T>
@@ -482,20 +445,16 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Converts this to an Option using the provided factory object. A success is converted to an Option of the encapsulated value,
      * a failure is converted to a None.
-     * @memberof Try#
-     * @method toOption
      * @param {OptionFactory<O, T>} Option An object that provides the
      * `Some` and `None` factory function for creating an Option.
      * @returns {O}
-     * @see Try#toOptional
+     * @see [[Try.toOptional]]
      */
     abstract toOption<O extends Option<T>>(Option: OptionFactory<O, T>): O;
 
     /**
      * Converts this to a Maybe using the provided factory. A success is converted to a Maybe of the encapsulated value using
      * the provided `Just` function. A failure returns the `Nothing` value.
-     * @memberof Try#
-     * @method toMaybe
      * @param {MaybeFactory<O, T>} Maybe An object that provides the
      * `Just` factory function for creating a Maybe, and the `Nothing` singleton Maybe instance.
      * @returns {M}
@@ -505,8 +464,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Converts this Try to an Observable stream: A success returns an Observable that emits the encapsulated
      * value and then completes, a failure turns an Observable that err's.
-     * @memberof Try#
-     * @method toObservable
      * @param {ObservableFactory<O, T>} Observable a factory function that is called to create
      * the returned observable by providing it with the "subscribe" function. Note that this is _not_ called with `new`,
      * so if your `Observable` is a constructor, you'll need to encapsulate it in a factory function.
@@ -519,8 +476,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Converts this Try to an Observable stream that supresses the encapsulated error of a failure. Same was
      * `toObservable`, but the failure case just completes immediately.
-     * @memberof Try#
-     * @method toSuppressingObservable
      * @param {ObservableFactory<O, T>} Observable
      * @returns {O}
      */
@@ -531,8 +486,6 @@ export default abstract class Try<T> implements FailableSupplier<T> {
     /**
      * Converts this Try to an Observable stream that works the same as a supressed observable stream returned
      * by `toSuppressingObservable`, except the stream never completes (for either the failure or success case).
-     * @memberof Try#
-     * @method toHungObservable
      * @param {ObservableFactory<O, T>} Observable
      * @returns {O}
      */
@@ -544,13 +497,14 @@ export default abstract class Try<T> implements FailableSupplier<T> {
      * Returns a permissive Try which encapsulates both successes and failures as successes. For successes, returns
      * a Try with the same encapsulated value. For failures, returns a success whose encapsulated value is the
      * encapsulated error.
-     * @memberof Try#
-     * @method permissive
      * @returns {Try<T|Error>}
      */
     abstract permissive(): Try<T | Error>;
 }
 
+/**
+ * An implementation of [[Try]] for representing successes.
+ */
 class Success<T> extends Try<T> {
     private readonly value: T;
 
@@ -720,6 +674,9 @@ class Success<T> extends Try<T> {
     }
 }
 
+/**
+ * An implementation of [[Try]] for representing failures.
+ */
 class Failure<T> extends Try<T> {
     private readonly error: Error;
 
