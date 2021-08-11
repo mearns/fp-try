@@ -1,6 +1,6 @@
 {
   "name": "fp-try",
-  "version": "0.1.4-dev",
+  "version": "0.1.4",
   "description": "A Try encapsulates the result of an operation that may have failed.",
   "keywords": [
     "try",
